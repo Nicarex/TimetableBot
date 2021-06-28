@@ -1,0 +1,8 @@
+downloads/
+log/
+config.ini
+psevdocode
+*.csv
+*.dbf
+*.xls
+*.txt
