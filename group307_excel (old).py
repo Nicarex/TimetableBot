@@ -1,7 +1,7 @@
 from openpyxl import load_workbook  # таблица
 from datetime import datetime, timedelta  # текущее время
 import pytz  # часовой пояс
-import download
+import download_from_site
 
 
 # открытие файлов
