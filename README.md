@@ -4,6 +4,8 @@
 
 Сайт с инструкцией: https://vk.link/bot_agz
 
-Email: timetablebot.agz@gmail.com VK: @bot_agz
+Контакты для связи:
+
+Email: my.profile.protect@gmail.com VK: @nicarex
 
 Для АГЗ МЧС
