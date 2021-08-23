@@ -7,6 +7,7 @@ import dbf
 import sql_db
 import schedule
 import time
+import timetable
 
 
 # Загрузка данных из конфига
@@ -21,7 +22,7 @@ def sendMail(to_email, subject, text):
     # подключени к gmail
     yag = yagmail.SMTP(USERNAME, PASSWORD)
     # Подпись, которая добавляется в конец каждого отправленного сообщения
-    signature = '\n\nСайт-инструкция: example.com\nПо всем вопросам просьба писать на почту ' \
+    signature = '\n\nСайт-инструкция: vk.link/bot_agz\nПо всем вопросам просьба писать на почту ' \
                 'my.profile.protect@gmail.com '
     # Непосредственно отправка письма
     yag.send(to=to_email, subject=subject, contents=text + signature)
@@ -59,6 +60,7 @@ def readMail():
     for (uid, message) in messages_set:
         sender = str(message.sent_from[0]['email'])
         text = str(message.body['plain'])
+        # Вывод сообщения
         print('SETTINGS message: from "' + sender + '" text: ' + text)
         # Парсинг текста в сообщении
         # Добавление параметров в БД
@@ -82,6 +84,17 @@ def readMail():
 
         mail.mark_seen(uid)  # отмечает письмо прочитанным
 
+    # Получение непрочитанных сообщений с ярлыком Send
+    messages_send = mail.messages(unread=True, label='Send')
+    for (uid, message) in messages_send:
+        sender = str(message.sent_from[0]['email'])
+        text = str(message.body['plain'])
+        # Вывод сообщения
+        print('SEND message: from "' + sender + '" text: ' + text)
+        #
+        #
+
+
     mail.logout()  # Выход
 
 
@@ -90,5 +103,8 @@ def readMail():
 # Прочтение сообщений раз в минуту
 schedule.every(1).minute.do(readMail)
 while True:
-    schedule.run_pending()
-    time.sleep(1)
+    try:
+        schedule.run_pending()
+        time.sleep(1)
+    except KeyboardInterrupt:
+        print('Program stop...')
