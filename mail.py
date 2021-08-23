@@ -7,7 +7,7 @@ import dbf
 import sql_db
 import schedule
 import time
-import timetable
+from timetable import timetable
 
 
 # Загрузка данных из конфига
@@ -38,7 +38,7 @@ def readMail():
     messages_dbf = mail.messages(unread=True, label='DBF files')
     for (uid, message) in messages_dbf:
         # Вывод сообщения
-        print('DBF message: from "' + str(message.sent_from[0]['email']) + '" text: ' + str(message.body['plain']))
+        print('[EMAIL] DBF message: from ' + str(message.sent_from[0]['email']) + ' text: ' + str(message.body['plain']))
         # Скачивание вложений
         for attachment in message.attachments:
             download_folder = 'downloads'
@@ -61,7 +61,7 @@ def readMail():
         sender = str(message.sent_from[0]['email'])
         text = str(message.body['plain'])
         # Вывод сообщения
-        print('SETTINGS message: from "' + sender + '" text: ' + text)
+        print('[EMAIL] SETTINGS message: from ' + sender + ' text: ' + text)
         # Парсинг текста в сообщении
         # Добавление параметров в БД
         for record in dbf.connect_to_dbf():
@@ -90,10 +90,9 @@ def readMail():
         sender = str(message.sent_from[0]['email'])
         text = str(message.body['plain'])
         # Вывод сообщения
-        print('SEND message: from "' + sender + '" text: ' + text)
+        print('[EMAIL] SEND message: from ' + sender + ' text: ' + text)
         #
         #
-
 
     mail.logout()  # Выход
 
