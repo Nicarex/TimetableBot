@@ -53,32 +53,34 @@ def date_for_file(day_of_week, next=None):
         return str(get_week_dates(monday_next, 1, 7)[day_of_week].format('DD.MM.YYYY'))
 
 
+def sort_for_teacher(item):
+    return int(item['WEEK']), int(item['DAY']), int(item['LES']), str(item['GROUP'])
+
+
 # Название дня выводится в строку
 def name_of_day_string(day, next):
     return days_of_week[day] + date_for_file(day, next=next) + '\n'
 
 
 # Предмет выводится в строку
-def subject_string(sorted_dbf, day, lesson, theme='', next=None):
+def subject_string(sorted_dbf, day, lesson=None, teacher=None, next=None):
     # Выводимая строка
     a = ''
     # Хранит дату
     b = ''
     # Получаем запись в листе через длину листа
     for number in range(len(sorted_dbf)):
-        # Если нужно получить строку с темой
-        if theme != '':
-            theme = sorted_dbf[number]['THEME'] + ' '
         # Если дата в записи равна нужной дате
         if sorted_dbf[number]['DATE'] == date_for_dbf(day, next=next):
             # b принимает текущую дату, если дата в записи совпадает с текущей датой
             b = sorted_dbf[number]['DATE']
             # Если номер пары в записи равен номеру необходимой пары
-            if sorted_dbf[number]['LES'] == str(lesson):
+            if sorted_dbf[number]['LES'] == str(lesson) and teacher is None:
                 # Обработка строк с подгруппами
                 if sorted_dbf[number]['SUBG'] == str(1):
-                    a = a + str(lesson) + '. ' + str(time_lesson[lesson]) + ' (' + sorted_dbf[number][
-                        'SUBJ_TYPE'] + ') '+ theme + sorted_dbf[number]['SUBJECT'] + ' ' + sorted_dbf[number]['AUD']
+                    a = a + str(lesson) + '. ' + str(time_lesson[lesson]) + ' (' + sorted_dbf[number]['SUBJ_TYPE'] + ') ' + sorted_dbf[number]['THEME'] + ' ' + sorted_dbf[number]['SUBJECT'] + ' ' + sorted_dbf[number]['AUD']
+                    if sorted_dbf[number + 1]['SUBG'] != str(2):
+                        return a + '\n'
                 if sorted_dbf[number + 1]['SUBG'] == str(2):
                     a = a + ' ' + sorted_dbf[number + 1]['AUD']
                     if sorted_dbf[number + 2]['SUBG'] != str(3):
@@ -94,8 +96,15 @@ def subject_string(sorted_dbf, day, lesson, theme='', next=None):
                 # Обычные строки
                 # Возвращает строку с парой
                 if sorted_dbf[number]['SUBG'] == '':
-                    return str(lesson) + '. ' + str(time_lesson[lesson]) + ' (' + sorted_dbf[number][
-                        'SUBJ_TYPE'] + ') '+ theme + sorted_dbf[number]['SUBJECT'] + ' ' + sorted_dbf[number]['AUD'] + '\n'
+                    return str(lesson) + '. ' + str(time_lesson[lesson]) + ' (' + sorted_dbf[number]['SUBJ_TYPE'] + ') ' + sorted_dbf[number]['THEME'] + ' ' + sorted_dbf[number]['SUBJECT'] + ' ' + sorted_dbf[number]['AUD'] + '\n'
+            # Для учителей
+            elif sorted_dbf[number]['LES'] == str(lesson) and teacher is not None:
+                # Если в одной паре несколько групп
+                if sorted_dbf[number + 1]['LES'] == str(lesson) and sorted_dbf[number+1]['DATE'] == date_for_dbf(day, next=next):
+                    for j in range(1, 10):
+                        if sorted_dbf[number + j]['LES'] == str(lesson) and sorted_dbf[number + j]['DATE'] == date_for_dbf(day, next=next):
+                            a = a + ' ' + sorted_dbf[number + j]['GROUP']
+                return str(lesson) + '. ' + str(time_lesson[lesson]) + ' (' + sorted_dbf[number]['SUBJ_TYPE'] + ') ' + sorted_dbf[number]['THEME'] + ' ' + sorted_dbf[number]['SUBJECT'] + ' ' + sorted_dbf[number]['AUD'] + ' ' + sorted_dbf[number]['GROUP'] + a + ' гр.' + '\n'
         # Если дата в записи не совпадает с датой в b и b не пустая
         elif sorted_dbf[number]['DATE'] != b and b != '':
             return str(lesson) + '. -\n'
@@ -106,7 +115,7 @@ def subject_string(sorted_dbf, day, lesson, theme='', next=None):
 
 
 # Расписание на неделю
-def timetable_week(sorted_dbf, theme, next):
+def timetable_week(sorted_dbf, teacher, next):
     # Хранит строку с расписанием
     temp = ''
     # Дни
@@ -114,12 +123,12 @@ def timetable_week(sorted_dbf, theme, next):
         temp = temp + name_of_day_string(day, next=next)
         # Пары
         for lesson in range(1, 6):
-            temp = temp + str(subject_string(sorted_dbf=sorted_dbf, day=day, lesson=lesson, theme=theme, next=next))
+            temp = temp + str(subject_string(sorted_dbf=sorted_dbf, day=day, lesson=lesson, teacher=teacher, next=next))
     return temp
 
 
 # Непосредственно собирается расписание
-def timetable(group, teacher=None, theme=None, next=None):
+def timetable(group, teacher=None, next=None):
     sorted_dbf = []
     # Если нужна группа
     if group != '':
@@ -128,16 +137,18 @@ def timetable(group, teacher=None, theme=None, next=None):
         for record in connect_to_dbf():
             if record['GROUP'] == group:
                 sorted_dbf.append(record)
-        return timetable_week(sorted_dbf=sorted_dbf, theme=theme, next=next)
-    elif teacher != None and group == '':
+        return 'Группа ' + group + '\n' + timetable_week(sorted_dbf=sorted_dbf, teacher=teacher, next=next)
+    elif teacher is not None and group == '':
         for record in connect_to_dbf():
             if record['NAME'] == teacher:
                 sorted_dbf.append(record)
-        return timetable_week(sorted_dbf=sorted_dbf, theme=theme, next=next)
+        sorted_dbf.sort(key=sort_for_teacher)
+        return 'Для преподавателя ' + teacher + '\n' + timetable_week(sorted_dbf=sorted_dbf, teacher=teacher, next=next)
 
 
 """
 DEBUG!!!
 """
 # print(timetable('307', theme='YES', next=None))
-# print(timetable('', teacher='Рябовичева О.В.', theme='YES', next='YES'))
+# print(timetable('', teacher='Макатов З.В.'))
+# print(timetable('', teacher='Будыкина Т.А.'))

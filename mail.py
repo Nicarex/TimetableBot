@@ -67,10 +67,10 @@ def readMail():
         for record in dbf.connect_to_dbf():
             # Проверка на группу
             if not text.find(record['GROUP']) == -1:
-                sql_db.add_values('students_email', sender, str(record['GROUP']))
+                sql_db.add_values_email('students_email', sender, str(record['GROUP']))
             # Проверка на фамилию
             elif not text.find(record['NAME']) == -1:
-                sql_db.add_values('teachers_email', sender, str(record['NAME']))
+                sql_db.add_values_email('teachers_email', sender, str(record['NAME']))
 
         # Чтение параметров из БД и отправка этого в ответном сообщении
         temp = ''

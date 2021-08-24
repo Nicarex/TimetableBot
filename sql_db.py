@@ -31,15 +31,31 @@ def create_db():
                 """)
 
     # Таблица для студентов в ВК
-    conn.execute("""CREATE TABLE IF NOT EXISTS students_vk (
+    conn.execute("""CREATE TABLE IF NOT EXISTS vk_user_student (
                 vk_id           INT,
                 group_id        TEXT,
                 UNIQUE(vk_id, group_id)
                 ON CONFLICT REPLACE);
                 """)
 
+    # Таблица для студентов в ВК
+    conn.execute("""CREATE TABLE IF NOT EXISTS vk_chat_student (
+                vk_id           INT,
+                group_id        TEXT,
+                UNIQUE(vk_id, group_id)
+                ON CONFLICT REPLACE);
+                """)
+
+    # Таблица для студентов в ВК
+    conn.execute("""CREATE TABLE IF NOT EXISTS vk_user_teacher (
+                vk_id           INT,
+                teacher_id        TEXT,
+                UNIQUE(vk_id, teacher_id)
+                ON CONFLICT REPLACE);
+                """)
+
     # Таблица для учителей в ВК
-    conn.execute("""CREATE TABLE IF NOT EXISTS teachers_vk (
+    conn.execute("""CREATE TABLE IF NOT EXISTS vk_chat_teacher (
                 vk_id           INT,
                 teacher_id      TEXT,
                 UNIQUE(vk_id,teacher_id)
@@ -50,8 +66,21 @@ def create_db():
     conn.close()  # Закрытие подключения
 
 
-# Добавление записи в таблицу
-def add_values(table, first_value, second_value):
+# Добавление записи в таблицу для почты
+def add_values_email(table, first_value, second_value):
+    conn = connection_to_sqlite()
+    # В таблице table добавляем first_value и second_value
+    conn.execute('INSERT INTO "{}" VALUES (?, ?)'.format(table.replace('"', '""')), (first_value, second_value))
+    conn.commit()
+    conn.close()
+
+
+# Добавляет записи в таблицу для ВК
+def add_values_vk(table, value, user_id_event=None, chat_id_event=None):
+    first_value = ''
+    second_value = value
+    if user_id_event is not None: first_value = int(user_id_event.obj.message['peer_id'])
+    if chat_id_event is not None: first_value = int(chat_id_event.chat_id)
     conn = connection_to_sqlite()
     # В таблице table добавляем first_value и second_value
     conn.execute('INSERT INTO "{}" VALUES (?, ?)'.format(table.replace('"', '""')), (first_value, second_value))
@@ -69,6 +98,49 @@ def read_values_all_email(table, value):
     cursor.close()
     conn.close()
     return dictionary
+
+
+# Передает значения из таблицы для ВК
+def read_values_all_vk(table, user_id_event=None, chat_id_event=None):
+    if user_id_event is not None: value = int(user_id_event.obj.message['peer_id'])
+    if chat_id_event is not None: value = int(chat_id_event.chat_id)
+    conn = connection_to_sqlite()
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM "{}" WHERE vk_id = ?'.format(table.replace('"', '""')), [value])
+    dictionary = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return dictionary
+
+
+# Удаляет все строки в table с email=value
+def delete_values_all_email(table, value):
+    conn = connection_to_sqlite()
+    conn.execute('DELETE FROM "{}" WHERE email = ?'.format(table.replace('"', '""')), [value])
+    conn.commit()
+    conn.close()
+
+
+#
+# Удаляет все строки в table с email=value
+def delete_values_all_vk(table, user_id_event=None, chat_id_event=None):
+    if user_id_event is not None: value = int(user_id_event.obj.message['peer_id'])
+    if chat_id_event is not None: value = int(chat_id_event.chat_id)
+    conn = connection_to_sqlite()
+    conn.execute('DELETE FROM "{}" WHERE vk_id = ?'.format(table.replace('"', '""')), [value])
+    conn.commit()
+    conn.close()
+
+
+# Проверяет, существует ли хоть одна запись для ВК
+def if_record_exist_vk(event, user=None, chat=None):
+    if user is not None and (read_values_all_vk('vk_user_student', user_id_event=event) != [] or read_values_all_vk('vk_user_teacher', user_id_event=event) != []):
+        return 'YES'
+    elif chat is not None and (read_values_all_vk('vk_chat_student', chat_id_event=event) != [] or read_values_all_vk('vk_chat_teacher', chat_id_event=event) != []):
+        return 'YES'
+    else:
+        return 'NO'
 
 
 # Создает БД, если не существует
