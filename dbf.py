@@ -1,13 +1,27 @@
 from dbfread import DBF
 from operator import itemgetter
+from collections import OrderedDict
+import os
+
+
+# def connect_to_dbf():
+#     return DBF('downloads/*.dbf', encoding='cp866', load=True)
 
 
 def connect_to_dbf():
-    return DBF('downloads/*.dbf', encoding='cp866', load=True)
+    records = []
+    for filename in os.listdir('downloads'):
+        table = DBF('downloads/'+filename, encoding='cp866', load=True)
+        for record in table:
+            records.append(record)
+    return records
 
 
-# for record in connect_to_dbf():
-#     if record['GROUP'] == '307' and record['WEEK'] == '40':
+# print(connect_to_dbf())
+# print(connect_to_dbf_test())
+
+# for record in connect_to_dbf_test():
+#     if record['GROUP'] == '307':
 #         print(record)
 #
 #

@@ -91,6 +91,7 @@ def plus_one(number):
 def search_and_add_to_db(event, user=None, chat=None):
     text = event.obj.message['text']
     answer = ''
+    # Для корректного отображения сообщения
     q = []
     for record in connect_to_dbf():
         # Если это пользователь
@@ -184,12 +185,15 @@ def vk_start_server():
                         write_msg_chat(event, message='Ведутся технические работы\nПопробуйте позже', keyboard=keyboard_settings_chat)
                     elif "вернуться назад" in request:
                         write_msg_chat(event, message='Хорошо', keyboard=keyboard_default_chat)
+                    elif "расписание на сайте" in request:
+                        write_msg_chat(event, message='https://amchs.ru/students/raspisanie/', keyboard=keyboard_default_chat)
                     elif not str(event.obj.message).find('chat_invite_user') == -1:
                         print('\nBot invited to chat')
                         write_msg_chat(event, 'Всем привет!\nЯ - бот, который помогает с расписанием\nДля вызова пропишите /чтоугодно или @bot_agz\nВНИМАНИЕ! Бот находится в стадии бета-тестирования')
                     else:
                         if search_and_add_to_db(event, chat='YES') is None:
                             write_msg_chat(event, message='👇👇👇', keyboard=keyboard_default_chat)
+
                 # Личные сообщения
                 elif event.type == VkBotEventType.MESSAGE_NEW and event.from_user:
                     # Текст сообщения
@@ -204,7 +208,7 @@ def vk_start_server():
                                 write_msg_user(event, message=timetable(i['group_id']), keyboard=keyboard_default_peer)
                             for i in read_values_all_vk('vk_user_teacher', user_id_event=event):
                                 write_msg_user(event, message=timetable(group='', teacher=i['teacher_id']), keyboard=keyboard_default_peer)
-                        if if_record_exist_vk(event, user='YES') == 'NO':
+                        elif if_record_exist_vk(event, user='YES') == 'NO':
                             write_msg_user(event, message='Для вас не найдено настроенных групп или преподавателей\nРекомендую обратиться к инструкции:\nhttps://vk.link/bot_agz', keyboard=keyboard_default_peer)
                     elif "следующая неделя" in request:
                         if if_record_exist_vk(event, user='YES') == 'YES':
@@ -235,23 +239,10 @@ def vk_start_server():
                         write_msg_user(event, message='Ведутся технические работы\nПопробуйте позже', keyboard=keyboard_settings_peer)
                     elif "вернуться назад" in request:
                         write_msg_user(event, message='Хорошо', keyboard=keyboard_default_peer)
+                    elif "расписание на сайте" in request:
+                        write_msg_user(event, message='https://amchs.ru/students/raspisanie/', keyboard=keyboard_default_peer)
                     else:
                         if search_and_add_to_db(event, user='YES') is None:
                             write_msg_user(event, message='Такой команды не найдено', keyboard=keyboard_default_peer)
-                # Если человек долго печатает, то ему отправляется сообщение с инструкцией
-                if event.type == VkBotEventType.MESSAGE_TYPING_STATE:
-                    if message_typing.get(int(event.object['from_id'])):
-                        message_typing.update(
-                            {int(event.object['from_id']): plus_one(message_typing.get(int(event.object['from_id'])))})
-                    else:
-                        message_typing.update({int(event.object['from_id']): 1})
-                    for user_id, count in message_typing.items():
-                        if count == 4:
-                            vk.messages.send(peer_id=user_id, message='Я вижу вы что-то долго печатаете\nЕсли что, вот наш сайт с инструкцией:\nhttps://vk.link/bot_agz', random_id=get_random_id())
-        except KeyboardInterrupt:
-            print('Successfully stopped')
-        # except requests.exceptions.ReadTimeout as timeout:
-        #     continue
-
-
-vk_start_server()
+        except:
+            continue

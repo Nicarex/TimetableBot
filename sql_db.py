@@ -89,11 +89,11 @@ def add_values_vk(table, value, user_id_event=None, chat_id_event=None):
 
 
 # Находит все значения в таблице table с значением value и возвращает их в виде словаря
-def read_values_all_email(table, value):
+def read_values_all_email(table, sender):
     conn = connection_to_sqlite()
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM "{}" WHERE email = ?'.format(table.replace('"', '""')), [value])
+    cursor.execute('SELECT * FROM "{}" WHERE email = ?'.format(table.replace('"', '""')), [sender])
     dictionary = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -115,14 +115,13 @@ def read_values_all_vk(table, user_id_event=None, chat_id_event=None):
 
 
 # Удаляет все строки в table с email=value
-def delete_values_all_email(table, value):
+def delete_values_all_email(table, sender):
     conn = connection_to_sqlite()
-    conn.execute('DELETE FROM "{}" WHERE email = ?'.format(table.replace('"', '""')), [value])
+    conn.execute('DELETE FROM "{}" WHERE email = ?'.format(table.replace('"', '""')), [sender])
     conn.commit()
     conn.close()
 
 
-#
 # Удаляет все строки в table с email=value
 def delete_values_all_vk(table, user_id_event=None, chat_id_event=None):
     if user_id_event is not None: value = int(user_id_event.obj.message['peer_id'])
@@ -138,6 +137,14 @@ def if_record_exist_vk(event, user=None, chat=None):
     if user is not None and (read_values_all_vk('vk_user_student', user_id_event=event) != [] or read_values_all_vk('vk_user_teacher', user_id_event=event) != []):
         return 'YES'
     elif chat is not None and (read_values_all_vk('vk_chat_student', chat_id_event=event) != [] or read_values_all_vk('vk_chat_teacher', chat_id_event=event) != []):
+        return 'YES'
+    else:
+        return 'NO'
+
+
+# Существует ли хоть одна запись для email
+def if_record_exist_email(sender):
+    if read_values_all_email('students_email', sender) != [] or read_values_all_email('teachers_email', sender) != []:
         return 'YES'
     else:
         return 'NO'

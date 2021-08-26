@@ -20,10 +20,10 @@ def date_for_dbf(day_of_week, next=None):
     """
     DEBUG!!!
     """
-    dt = pendulum.parse('2021-05-31')
+    # dt = pendulum.parse('2021-05-31')
 
     # Текущее время в текущем часовом поясе
-    # dt = pendulum.now(tz='Europe/Moscow')
+    dt = pendulum.now(tz='Europe/Moscow')
     monday = dt.start_of('week')
     monday_next = dt.next(pendulum.MONDAY)
     # Если на текущую неделю
@@ -39,10 +39,10 @@ def date_for_file(day_of_week, next=None):
     """
     DEBUG!!!
     """
-    dt = pendulum.parse('2021-05-31')
+    # dt = pendulum.parse('2021-05-31')
 
     # Текущее время в текущем часовом поясе
-    # dt = pendulum.now(tz='Europe/Moscow')
+    dt = pendulum.now(tz='Europe/Moscow')
     monday = dt.start_of('week')
     monday_next = dt.next(pendulum.MONDAY)
     # Если на текущую неделю
