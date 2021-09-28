@@ -37,6 +37,8 @@ keyboard_settings_peer.add_openlink_button('Открыть инструкцию'
 keyboard_settings_peer.add_line()
 keyboard_settings_peer.add_button('Удалить параметры групп и преподавателей', color=VkKeyboardColor.POSITIVE)
 keyboard_settings_peer.add_line()
+keyboard_settings_peer.add_button('Об авторе', color=VkKeyboardColor.SECONDARY)
+keyboard_settings_peer.add_line()
 keyboard_settings_peer.add_button('Вернуться назад', color=VkKeyboardColor.NEGATIVE)
 
 keyboard_settings_chat = VkKeyboard(one_time=False, inline=True)
@@ -45,6 +47,8 @@ keyboard_settings_chat.add_line()
 keyboard_settings_chat.add_openlink_button('Открыть инструкцию', link="https://vk.link/bot_agz")
 keyboard_settings_chat.add_line()
 keyboard_settings_chat.add_button('Удалить параметры групп и преподавателей', color=VkKeyboardColor.POSITIVE)
+keyboard_settings_chat.add_line()
+keyboard_settings_chat.add_button('Об авторе', color=VkKeyboardColor.SECONDARY)
 keyboard_settings_chat.add_line()
 keyboard_settings_chat.add_button('Вернуться назад', color=VkKeyboardColor.NEGATIVE)
 
@@ -132,23 +136,25 @@ def search_and_add_to_db(event, user=None, chat=None):
 # Основной цикл
 def vk_start_server():
     print("\nServer started")
-    message_typing = {}
     while True:
         try:
             for event in long_poll.listen():
-                # print(event)
                 # Беседа
                 if event.type == VkBotEventType.MESSAGE_NEW and event.from_chat:
+                    # Текст из сообщения
                     request = event.obj.message['text'].lower()
                     print('[VK] CHAT message: from ' + get_user_info(event) + ' text: ' + request)
-                    if "расписание на текущую неделю" in request:
+                    # Проверка на упоминание всех
+                    if not request.find('@all') == -1:
+                        print('@all detected!')
+                    elif "расписание на текущую неделю" in request:
                         if if_record_exist_vk(event, chat='YES') == 'YES':
                             for i in read_values_all_vk('vk_chat_student', chat_id_event=event):
                                 write_msg_chat(event, message=timetable(i['group_id']), keyboard=keyboard_default_chat)
                             for i in read_values_all_vk('vk_chat_teacher', chat_id_event=event):
                                 write_msg_chat(event, message=timetable(group='', teacher=i['teacher_id']),
                                                keyboard=keyboard_default_chat)
-                        if if_record_exist_vk(event, chat='YES') == 'NO':
+                        elif if_record_exist_vk(event, chat='YES') == 'NO':
                             write_msg_chat(event, message='Не найдено настроенных групп или преподавателей\nРекомендую обратиться к инструкции:\nhttps://vk.link/bot_agz',
                                            keyboard=keyboard_default_chat)
                     elif "расписание на следующую неделю" in request:
@@ -158,12 +164,10 @@ def vk_start_server():
                             for i in read_values_all_vk('vk_chat_teacher', chat_id_event=event):
                                 write_msg_chat(event, message=timetable(group='', teacher=i['teacher_id'], next='YES'),
                                                keyboard=keyboard_default_chat)
-                        if if_record_exist_vk(event, chat='YES') == 'NO':
+                        elif if_record_exist_vk(event, chat='YES') == 'NO':
                             write_msg_chat(event,
                                            message='Не найдено настроенных групп или преподавателей\nРекомендую обратиться к инструкции:\nhttps://vk.link/bot_agz',
                                            keyboard=keyboard_default_chat)
-                    elif not request.find('@all') == -1:
-                        print('@all detected!')
                     elif "настройки" in request:
                         if if_record_exist_vk(event, chat='YES') == 'YES':
                             temp = 'Установлены следующие настройки:'
@@ -180,16 +184,20 @@ def vk_start_server():
                             delete_values_all_vk('vk_chat_teacher', chat_id_event=event)
                             write_msg_chat(event, message='Сохраненные группы и преподаватели успешно удалены', keyboard=keyboard_settings_chat)
                         elif if_record_exist_vk(event, chat='NO') == 'NO':
-                            write_msg_chat(event, message='Нечего удалять, так как для вас нет настроенных групп или преподавателей', keyboard=keyboard_settings_chat)
+                            write_msg_chat(event, message='Нечего удалять, так как нет настроенных групп или преподавателей', keyboard=keyboard_settings_chat)
                     elif "настроить отправку" in request:
-                        write_msg_chat(event, message='Ведутся технические работы\nПопробуйте позже', keyboard=keyboard_settings_chat)
+                        write_msg_chat(event, message='Эта функция пока недоступна', keyboard=keyboard_settings_chat)
+                    elif "об авторе" in request:
+                        write_msg_chat(event, message='Автор бота\nСтудент 307 группы\nНасонов Никита', keyboard=keyboard_settings_chat)
                     elif "вернуться назад" in request:
                         write_msg_chat(event, message='Хорошо', keyboard=keyboard_default_chat)
                     elif "расписание на сайте" in request:
                         write_msg_chat(event, message='https://amchs.ru/students/raspisanie/', keyboard=keyboard_default_chat)
+                    elif "открыть инструкцию" in request:
+                        write_msg_chat(event, message='https://vk.link/bot_agz', keyboard=keyboard_settings_chat)
                     elif not str(event.obj.message).find('chat_invite_user') == -1:
-                        print('\nBot invited to chat')
-                        write_msg_chat(event, 'Всем привет!\nЯ - бот, который помогает с расписанием\nДля вызова пропишите /чтоугодно или @bot_agz\nВНИМАНИЕ! Бот находится в стадии бета-тестирования')
+                        print('Bot invited to chat')
+                        write_msg_chat(event, 'Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://vk.link/bot_agz\n\nАхтунг! Бот находится в стадии бета-тестирования', keyboard=keyboard_default_chat)
                     else:
                         if search_and_add_to_db(event, chat='YES') is None:
                             write_msg_chat(event, message='👇👇👇', keyboard=keyboard_default_chat)
@@ -205,17 +213,17 @@ def vk_start_server():
                     elif "текущая неделя" in request:
                         if if_record_exist_vk(event, user='YES') == 'YES':
                             for i in read_values_all_vk('vk_user_student', user_id_event=event):
-                                write_msg_user(event, message=timetable(i['group_id']), keyboard=keyboard_default_peer)
+                                write_msg_user(event, message='➡ '+timetable(i['group_id']), keyboard=keyboard_default_peer)
                             for i in read_values_all_vk('vk_user_teacher', user_id_event=event):
-                                write_msg_user(event, message=timetable(group='', teacher=i['teacher_id']), keyboard=keyboard_default_peer)
+                                write_msg_user(event, message='➡ '+timetable(group='', teacher=i['teacher_id']), keyboard=keyboard_default_peer)
                         elif if_record_exist_vk(event, user='YES') == 'NO':
                             write_msg_user(event, message='Для вас не найдено настроенных групп или преподавателей\nРекомендую обратиться к инструкции:\nhttps://vk.link/bot_agz', keyboard=keyboard_default_peer)
                     elif "следующая неделя" in request:
                         if if_record_exist_vk(event, user='YES') == 'YES':
                             for i in read_values_all_vk('vk_user_student', user_id_event=event):
-                                write_msg_user(event, message=timetable(i['group_id'], next='YES'), keyboard=keyboard_default_peer)
+                                write_msg_user(event, message='➡ '+timetable(i['group_id'], next='YES'), keyboard=keyboard_default_peer)
                             for i in read_values_all_vk('vk_user_teacher', user_id_event=event):
-                                write_msg_user(event, message=timetable(group='', teacher=i['teacher_id'], next='YES'), keyboard=keyboard_default_peer)
+                                write_msg_user(event, message='➡ '+timetable(group='', teacher=i['teacher_id'], next='YES'), keyboard=keyboard_default_peer)
                         if if_record_exist_vk(event, user='YES') == 'NO':
                             write_msg_user(event, message='Для вас не найдено настроенных групп или преподавателей\nРекомендую обратиться к инструкции:\nhttps://vk.link/bot_agz', keyboard=keyboard_default_peer)
                     elif "настройки" in request:
@@ -236,11 +244,15 @@ def vk_start_server():
                         elif if_record_exist_vk(event, user='NO') == 'NO':
                             write_msg_user(event, message='Нечего удалять, так как для вас нет настроенных групп или преподавателей', keyboard=keyboard_settings_peer)
                     elif "настроить отправку" in request:
-                        write_msg_user(event, message='Ведутся технические работы\nПопробуйте позже', keyboard=keyboard_settings_peer)
+                        write_msg_user(event, message='Эта функция пока недоступна', keyboard=keyboard_settings_peer)
+                    elif "об авторе" in request:
+                        write_msg_user(event, message='Автор бота\nСтудент 307 группы\nНасонов Никита', keyboard=keyboard_settings_peer)
                     elif "вернуться назад" in request:
                         write_msg_user(event, message='Хорошо', keyboard=keyboard_default_peer)
                     elif "расписание на сайте" in request:
                         write_msg_user(event, message='https://amchs.ru/students/raspisanie/', keyboard=keyboard_default_peer)
+                    elif "открыть инструкцию" in request:
+                        write_msg_user(event, message='https://vk.link/bot_agz', keyboard=keyboard_settings_peer)
                     else:
                         if search_and_add_to_db(event, user='YES') is None:
                             write_msg_user(event, message='Такой команды не найдено', keyboard=keyboard_default_peer)

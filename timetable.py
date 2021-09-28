@@ -144,11 +144,3 @@ def timetable(group, teacher=None, next=None):
                 sorted_dbf.append(record)
         sorted_dbf.sort(key=sort_for_teacher)
         return 'Для преподавателя ' + teacher + '\n' + timetable_week(sorted_dbf=sorted_dbf, teacher=teacher, next=next)
-
-
-"""
-DEBUG!!!
-"""
-# print(timetable('307', theme='YES', next=None))
-# print(timetable('', teacher='Макатов З.В.'))
-# print(timetable('', teacher='Будыкина Т.А.'))
