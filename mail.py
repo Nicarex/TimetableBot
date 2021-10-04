@@ -12,8 +12,8 @@ from imap_tools import MailBox, AND
 # Загрузка данных из конфига
 config = configparser.ConfigParser()
 config.read("config.ini")
-USERNAME = config['MAIL']['username']
-PASSWORD = config['MAIL']['password']
+USERNAME = config['TEST']['username']
+PASSWORD = config['TEST']['password']
 
 
 # Отправка почты через yagmail

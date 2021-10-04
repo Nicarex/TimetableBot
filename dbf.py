@@ -9,3 +9,5 @@ def connect_to_dbf():
         for record in table:
             records.append(record)
     return records
+
+

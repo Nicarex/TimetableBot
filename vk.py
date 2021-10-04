@@ -9,8 +9,8 @@ from sql_db import read_values_all_vk, add_values_vk, if_record_exist_vk, delete
 
 config = configparser.ConfigParser()
 config.read("config.ini")
-GROUP_ID = config['VK']['group_id']
-GROUP_TOKEN = config['VK']['group_token']
+GROUP_ID = config['TEST']['group_id']
+GROUP_TOKEN = config['TEST']['group_token']
 API_VERSION = '5.120'
 
 
