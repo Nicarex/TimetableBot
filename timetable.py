@@ -1,70 +1,15 @@
 from log import logger
 from datetime import timedelta
 import pendulum
-from chardet import detect
-from sql_db import connection_to_sqlite
-from sqlite3 import Row
-import pandas as pd
+from main import get_latest_file, connection_to_sql
 import os
-from pathlib import Path
 from glob import glob
+from sqlite3 import Row
 
 
 # Дни недели для файла расписания
 days_of_week = ['ПОНЕДЕЛЬНИК - ', '\nВТОРНИК - ', '\nСРЕДА - ', '\nЧЕТВЕРГ - ', '\nПЯТНИЦА - ', '\nСУББОТА - ']
 time_lesson = ['', '09:00-10:30', '10:45-12:15', '12:30-14:00', '14:45-16:15', '16:25-17:55']
-
-
-# Получает последний измененный файл
-def get_latest_file(path):
-    """
-    example path = 'timetable-dbs/timetable*.db'
-    """
-    list_of_files = glob(path)  # * means all if need specific format then *.csv
-    # Если есть хоть один файл
-    if list_of_files:
-        latest_file = max(list_of_files, key=os.path.getmtime)
-        logger.debug('Latest file is ' + latest_file)
-        return latest_file
-    else:
-        logger.warning('No files in this path ' + path)
-        return None
-
-
-# Проверка кодировки файла
-def check_encoding(file, encoding):
-    logger.info('Check encoding of file <' + file + '>...')
-    rawfile = open(file, 'rb').read()
-    result_encoding = detect(rawfile)
-    if result_encoding['encoding'] == encoding:
-        logger.success('Encoding of file <' + file + '> is ' + result_encoding['encoding'])
-        return True
-    else:
-        logger.error('Encoding of file <' + file + '>doest match with request! Encoding is ' + str(result_encoding['encoding']))
-        return False
-
-
-# Конвертирует CSV-файл в SQL-файл
-def convert_to_sql(csv_file):
-    """
-    example:
-    for file in os.listdir('downloads'):
-        convert_to_sql()
-    """
-    # Если файл существует и заканчивается на csv
-    if Path(csv_file).is_file() and csv_file.endswith('.csv'):
-        pass
-    else:
-        logger.error('Cant convert to sql because no file exist!')
-        return None
-    date = pendulum.now(tz='Europe/Moscow').format('YYYY-MM-DD_HH-mm-ss')
-    logger.info('Convert <' + csv_file + '> to SQL...')
-    timetable_csv = pd.read_csv(csv_file, encoding='utf-8', sep=';')
-    if not os.path.isdir('timetable-dbs'):  # Если пути не существует - создать
-        os.makedirs('timetable-dbs', exist_ok=True)
-    conn = connection_to_sqlite(name='timetable-dbs/timetable_' + date + '.db')
-    timetable_csv.to_sql(name='timetable', con=conn, if_exists='append', index=False)
-    logger.success('File <' + csv_file + '> successfully converted to timetable_' + date + '.db')
 
 
 # Возвращает дни недели в виде словаря
@@ -270,7 +215,14 @@ def subject_string(conn, day, lesson, group=None, teacher=None, next=next):
                 return None
 
 
-def timetable_week(conn, group=None, teacher=None, next=None):
+def timetable_week(group=None, teacher=None, next=None):
+    # Подключение к базе данных
+    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    if db_timetable is None:
+        logger.error('Cant processing timetable because no db-files in timetable-dbs directory')
+        return 'В данный момент я не могу обработать ваш запрос, пожалуйста, повторите позже'
+    conn = connection_to_sql(db_timetable)
+    conn.row_factory = Row
     # Хранит строку с расписанием
     temp = ''
     # Дни
@@ -287,43 +239,77 @@ def timetable_week(conn, group=None, teacher=None, next=None):
                 conn.close()
                 logger.error(
                     'An error occurred while processing timetable for ' + group + ' group or ' + teacher + ' teacher!')
-                return 'Произошла ошибка при выполнении запроса...'
+                return 'В данный момент я не могу обработать ваш запрос, пожалуйста, повторите позже'
     if temp is not None:
         conn.close()
         return temp
     else:
         conn.close()
         logger.error('An error occurred while processing timetable for ' + group + ' group or ' + teacher + ' teacher!')
-        return 'Произошла ошибка при выполнении запроса...'
-
-
-def timetable(group, teacher=None, next=None):
-    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
-    if db_timetable is None:
-        logger.error('Cant processing timetable because no db-files in timetable-dbs directory')
         return 'В данный момент я не могу обработать ваш запрос, пожалуйста, повторите позже'
-    logger.debug('Using <' + db_timetable + '> file for timetable')
-    if group is not None and teacher is None:
-        logger.info('Timetable request for "' + group + '" group, next = ' + next)
-        conn = connection_to_sqlite(db_timetable)
-        conn.row_factory = Row
-        timetable_group = 'Группа ' + group + '\n' + timetable_week(conn=conn, group=group, teacher=teacher, next=next)
-        logger.success('Timetable response for "' + group + '" group, next = ' + next)
+
+
+def timetable(group: str = None, teacher: str = None, next: str = None):
+    # Проверка на существование дирекотрии с расписаниями
+    if not os.path.isdir('timetable-files'):  # Если пути не существует - создать
+        os.makedirs('timetable-files', exist_ok=True)
+    if group and teacher is None:
+        logger.info('Timetable request for "' + group + '" group, next = ' + str(next))
+        # Поиск уже готового расписания в директории
+        path = 'timetable-files/' + group + '.txt'
+        timetable_group = None
+        if glob(path):
+            # Чтение файла расписания
+            with open(path, 'r', encoding='utf-8') as f:
+                """
+                Проверка на актуальность расписания
+                Берется первая строка с датой и сравнивается с понедельником
+                """
+                date_from_file = f.readline()
+                if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
+                    timetable_group = f.read()
+                    logger.info('Read timetable from file <' + path + '>')
+        # Если прочитать из файла не удалось, то пишем новое
+        if timetable_group is None:
+            timetable_group = 'Группа ' + group + '\n' + timetable_week(group=group, teacher=teacher, next=next)
+            # Запись файла расписания
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_group)
+                logger.info('Write timetable to file <' + path + '>')
+        logger.success('Timetable response for "' + group + '" group, next = ' + str(next))
         return timetable_group
-    elif group is None and teacher is not None:
-        logger.info('Timetable request for "' + teacher + '" teacher, next = ' + next)
-        conn = connection_to_sqlite(db_timetable)
-        conn.row_factory = Row
-        timetable_teacher = 'Для преподавателя ' + teacher + '\n' + timetable_week(conn=conn, teacher=teacher, next=next)
-        logger.success('Timetable response for "' + teacher + '" teacher, next = ' + next)
+    elif teacher and group is None:
+        logger.info('Timetable request for "' + teacher + '" teacher, next = ' + str(next))
+        # Поиск уже готового расписания в директории
+        path = 'timetable-files/' + teacher + '.txt'
+        timetable_teacher = None
+        if glob(path):
+            # Чтение файла расписания
+            with open(path, 'r', encoding='utf-8') as f:
+                """
+                Проверка на актуальность расписания
+                Берется первая строка с датой и сравнивается с понедельником
+                """
+                date_from_file = f.readline()
+                if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
+                    timetable_teacher = f.read()
+                    logger.info('Read timetable from file <' + path + '>')
+        # Если прочитать из файла не удалось, то пишем новое
+        if timetable_teacher is None:
+            timetable_teacher = 'Для преподавателя ' + teacher + '\n' + timetable_week(group=group, teacher=teacher, next=next)
+            # Запись файла расписания
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_teacher)
+                logger.info('Write timetable to file <' + path + '>')
+        logger.success('Timetable response for "' + teacher + '" group, next = ' + str(next))
         return timetable_teacher
     else:
         logger.error('Incorrect timetable request!')
         return 'В данный момент я не могу обработать ваш запрос, пожалуйста, повторите позже'
 
 
-with logger.catch():
+# with logger.catch():
+    # convert_to_sql(csv_files_directory='downloads/')
+    # print(timetable(group='307', next='YES'))
 
-    # for file in os.listdir('downloads'):
-    #     convert_to_sql(csv_file='downloads/'+file)
-    print(timetable(group='693', teacher=None, next='YES'))
+
