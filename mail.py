@@ -1,14 +1,13 @@
 import os
-import yagmail
 import configparser
 import time
 from log import logger
 from timetable import timetable
 from imap_tools import MailBox, A
-from main import check_encoding_and_move_files, convert_to_sql
+from main import check_encoding_and_move_files, convert_to_sql, connection_to_sql, sendMail
 from glob import glob
 from pathlib import Path
-from sql_db import getting_the_difference_in_sql_files_and_sending_them
+from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user
 
 
 # Загрузка данных из конфига
@@ -21,23 +20,12 @@ except KeyError as e:
     logger.error('Error when try to read config data. Maybe file not exist or field is wrong')
 
 
-# Отправка почты через yagmail
-def sendMail(to_email, subject, text):
-    # Подключение к gmail
-    yag = yagmail.SMTP(USERNAME, PASSWORD)
-    # Подпись, которая добавляется в конец каждого отправленного сообщения
-    signature = '\n\n\nСайт-инструкция: https://vk.link/bot_agz'
-    # Непосредственно отправка письма
-    yag.send(to=to_email, subject=subject, contents=text + signature)
-    logger.log('EMAIL', 'Message was sent to <' + to_email + '> with subject: "' + subject + '"')
-
-
 # Чтение почты и выполнение действий
 def processingMail():
     logger.info('Email server started...')
     while True:
         try:
-            logger.debug('Start work...')
+            # logger.debug('Start work...')
             # Подключение к gmail
             mailbox = MailBox('imap.gmail.com')
             mailbox.login(username=USERNAME, password=PASSWORD)
@@ -67,91 +55,55 @@ def processingMail():
                     # Проверка на существование директории с расписаниями
                     if not os.path.isdir('timetable-files'):  # Если пути не существует - создать
                         os.makedirs('timetable-files', exist_ok=True)
-                    list_of_files = glob('timetable-files')
+                    list_of_files = glob('timetable-files/*')
                     for file in list_of_files:
                         os.remove(file)
                     getting_the_difference_in_sql_files_and_sending_them()
 
-
             # Получение непрочитанных сообщений с ярлыком Settings
             messages_set = mailbox.fetch(A(seen=False, gmail_label='Settings'))
             for msg in messages_set:
-                sender = msg.from_
-                text = msg.text
-                # Вывод сообщения
-                print('[EMAIL] SETTINGS message: from ' + sender)
-                # Парсинг текста в сообщении
-                # Добавление параметров в БД
-                for record in connect_to_dbf():
-                    # Проверка на группу
-                    if text.find(record['GROUP']) != -1:
-                        sql_db.add_values_email('students_email', sender, str(record['GROUP']))
-                    # Проверка на фамилию
-                    elif text.find(record['NAME']) != -1:
-                        sql_db.add_values_email('teachers_email', sender, str(record['NAME']))
-
-                # Сообщение в нижний регистр для проверки слов
-                text = text.lower()
-                # Если сбросить не найдено
-                if text.find('сбросить') == -1:
-                    # Чтение параметров из БД и отправка этого в ответном сообщении
-                    temp = ''
-                    if sql_db.if_record_exist_email(sender) == 'YES':
-                        # Для студентов
-                        for i in sql_db.read_values_all_email('students_email', sender):
-                            temp = temp + str(i['email'] + ' - ' + i['group_id'] + '\n')
-                        # Для учителей
-                        for i in sql_db.read_values_all_email('teachers_email', sender):
-                            temp = temp + str(i['email'] + ' - ' + i['teacher_id'] + '\n')
-                        sendMail(sender, subject=msg.subject,
-                                 text='Для вашего email-адреса установлены следующие параметры отправки писем:\n' + temp)
-                    elif sql_db.if_record_exist_email(sender) == 'NO':
-                        sendMail(sender, subject=msg.subject, text='Нет распознанных групп или преподавателей.')
-                # Если сбросить найдено
+                logger.log('EMAIL', 'Settings message from ' + msg.from_)
+                # Нашел ли ты хоть что-то в письме, если нет, то сказать, что ничего не нашел
+                answer = ''
+                if msg.text.lower().find('текущие') != -1:
+                    answer = display_saved_settings(email=msg.from_)
+                # Если нужно добавить параметры, а не посмотреть текущие
                 else:
-                    temp = ''
-                    if sql_db.if_record_exist_email(sender) == 'YES':
-                        # Для студентов
-                        sql_db.delete_values_all_email('students_email', sender)
-                        # Для учителей
-                        sql_db.delete_values_all_email('teachers_email', sender)
-                        sendMail(sender, subject=msg.subject,
-                                 text='Для вашего email-адреса удалены все сохраненные параметры отправки писем')
-                    elif sql_db.if_record_exist_email(sender) == 'NO':
-                        sendMail(sender, subject=msg.subject,
-                                 text='Нечего сбрасывать, так как для вас нет сохраненных групп или преподавателей.')
+                    # Поиск группы и преподов
+                    response = search_group_and_teacher_in_request(request=msg.text, email=msg.from_)
+                    if response:
+                        answer += str(response)
+                    else:
+                        answer += 'Нет распознанных групп или преподавателей, если вы их вводили\n\nНапоминаю, что для успешного добавления параметров нужно придерживаться строгих правил ввода, которые можно посмотреть в инструкции'
+                    # Сообщение в нижний регистр для проверки слов
+                    text = msg.text.lower()
+                    # Проверка на уведомления
+                    if text.find('включить уведомления') != -1:
+                        answer += str(enable_and_disable_notifications(enable='YES', email=msg.from_))
+                    elif text.find('выключить уведомления') != -1:
+                        answer += str(enable_and_disable_notifications(disable='YES', email=msg.from_))
+                    if text.find('сбросить параметры отправки') != -1:
+                        answer += str(delete_all_saved_groups_and_teachers(email=msg.from_))
+                sendMail(to_email=msg.from_, subject=msg.subject, text=answer)
 
             # Получение непрочитанных сообщений с ярлыком Send
             messages_send = mailbox.fetch(A(seen=False, gmail_label='Send'))
             for msg in messages_send:
-                sender = msg.from_
+                logger.log('EMAIL', 'Send message from ' + msg.from_)
                 text = msg.text.lower()
-                # Вывод сообщения
-                print('[EMAIL] SEND message: from ' + sender)
-                temp = ''
+                answer = ''
                 if text.find('текущ') != -1:
-                    if sql_db.if_record_exist_email(sender=sender) == 'YES':
-                        for i in sql_db.read_values_all_email('students_email', sender):
-                            temp = temp + timetable(group=i['group_id']) + '\n'
-                        for i in sql_db.read_values_all_email('teachers_email', sender):
-                            temp = temp + timetable(group='', teacher=i['teacher_id']) + '\n'
-                    elif sql_db.if_record_exist_email(sender=sender) == 'NO':
-                        temp = temp + 'Для вас не найдено настроенных групп или преподавателей'
+                    answer += str(getting_timetable_for_user(email=msg.from_))
                 if text.find('следующ') != -1:
-                    if sql_db.if_record_exist_email(sender=sender) == 'YES':
-                        for i in sql_db.read_values_all_email('students_email', sender):
-                            temp = temp + timetable(group=i['group_id'], next='YES') + '\n'
-                        for i in sql_db.read_values_all_email('teachers_email', sender):
-                            temp = temp + timetable(group='', teacher=i['teacher_id'], next='YES') + '\n'
-                    elif sql_db.if_record_exist_email(sender=sender) == 'NO':
-                        temp = temp + 'Для вас не найдено настроенных групп или преподавателей'
-                if temp == '':
-                    sendMail(sender, subject=msg.subject,
-                             text='Не удалось распознать ваш запрос\nВозможно вы сделали орфографическую ошибку')
+                    answer += str(getting_timetable_for_user(email=msg.from_, next='YES'))
+                if answer == '':
+                    sendMail(to_email=msg.from_, subject=msg.subject, text='Не удалось распознать ваш запрос\nВозможно вы сделали орфографическую ошибку')
                 else:
-                    sendMail(sender, subject=msg.subject, text=temp)
+                    sendMail(to_email=msg.from_, subject=msg.subject, text=answer)
+
             mailbox.logout()  # Выход
-            logger.debug('End work')
+            # logger.debug('End work')
             time.sleep(10)
         except KeyboardInterrupt:
             logger.warning('Email server has been stopped by Ctrl+C')

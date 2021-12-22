@@ -254,7 +254,7 @@ def timetable(group: str = None, teacher: str = None, next: str = None):
     if not os.path.isdir('timetable-files'):  # Если пути не существует - создать
         os.makedirs('timetable-files', exist_ok=True)
     if group and teacher is None:
-        logger.info('Timetable request for "' + group + '" group, next = ' + str(next))
+        logger.debug('Timetable request for "' + group + '" group, next = ' + str(next))
         # Поиск уже готового расписания в директории
         path = 'timetable-files/' + group + '.txt'
         timetable_group = None
@@ -268,18 +268,18 @@ def timetable(group: str = None, teacher: str = None, next: str = None):
                 date_from_file = f.readline()
                 if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
                     timetable_group = f.read()
-                    logger.info('Read timetable from file <' + path + '>')
+                    logger.debug('Read timetable from file <' + path + '>')
         # Если прочитать из файла не удалось, то пишем новое
         if timetable_group is None:
             timetable_group = 'Группа ' + group + '\n' + timetable_week(group=group, teacher=teacher, next=next)
             # Запись файла расписания
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_group)
-                logger.info('Write timetable to file <' + path + '>')
-        logger.success('Timetable response for "' + group + '" group, next = ' + str(next))
+                logger.debug('Write timetable to file <' + path + '>')
+        logger.debug('Timetable response for "' + group + '" group, next = ' + str(next))
         return timetable_group
     elif teacher and group is None:
-        logger.info('Timetable request for "' + teacher + '" teacher, next = ' + str(next))
+        logger.debug('Timetable request for "' + teacher + '" teacher, next = ' + str(next))
         # Поиск уже готового расписания в директории
         path = 'timetable-files/' + teacher + '.txt'
         timetable_teacher = None
@@ -293,15 +293,15 @@ def timetable(group: str = None, teacher: str = None, next: str = None):
                 date_from_file = f.readline()
                 if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
                     timetable_teacher = f.read()
-                    logger.info('Read timetable from file <' + path + '>')
+                    logger.debug('Read timetable from file <' + path + '>')
         # Если прочитать из файла не удалось, то пишем новое
         if timetable_teacher is None:
             timetable_teacher = 'Для преподавателя ' + teacher + '\n' + timetable_week(group=group, teacher=teacher, next=next)
             # Запись файла расписания
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_teacher)
-                logger.info('Write timetable to file <' + path + '>')
-        logger.success('Timetable response for "' + teacher + '" group, next = ' + str(next))
+                logger.debug('Write timetable to file <' + path + '>')
+        logger.debug('Timetable response for "' + teacher + '" group, next = ' + str(next))
         return timetable_teacher
     else:
         logger.error('Incorrect timetable request!')
@@ -309,7 +309,6 @@ def timetable(group: str = None, teacher: str = None, next: str = None):
 
 
 # with logger.catch():
-    # convert_to_sql(csv_files_directory='downloads/')
     # print(timetable(group='307', next='YES'))
-
+    # print(timetable(teacher='Яшкова А.С.', next='YES'))
 

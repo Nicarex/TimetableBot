@@ -6,6 +6,29 @@ import sqlite3
 from pathlib import Path
 import pendulum
 import pandas
+import configparser
+import yagmail
+
+
+# Загрузка данных из конфига
+config = configparser.ConfigParser()
+try:
+    config.read("config.ini")
+    USERNAME = config['TEST']['username']
+    PASSWORD = config['TEST']['password']
+except KeyError as e:
+    logger.error('Error when try to read config data. Maybe file not exist or field is wrong')
+
+
+# Отправка почты через yagmail
+def sendMail(to_email, subject, text):
+    # Подключение к gmail
+    yag = yagmail.SMTP(USERNAME, PASSWORD)
+    # Подпись, которая добавляется в конец каждого отправленного сообщения
+    signature = '\n\n\nСайт-инструкция: https://vk.link/bot_agz'
+    # Непосредственно отправка письма
+    yag.send(to=to_email, subject=subject, contents=text + signature)
+    logger.log('EMAIL', 'Message was sent to <' + to_email + '> with subject: "' + subject + '"')
 
 
 # Получает последний измененный файл
@@ -17,7 +40,7 @@ def get_latest_file(path: str):
     # Если есть хоть один файл
     if list_of_files:
         latest_file = max(list_of_files, key=os.path.getmtime)
-        logger.debug('Latest file is <' + latest_file + '>')
+        logger.trace('Latest file is <' + latest_file + '>')
         return latest_file
     else:
         logger.warning('No files in this path ' + path)
@@ -68,7 +91,7 @@ def check_encoding_and_move_files(path: str, encoding: str):
 
 def connection_to_sql(name: str):
     try:
-        conn = sqlite3.connect(database=name)
+        conn = sqlite3.connect(database=name, timeout=20)
         logger.trace('Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:
         logger.error('Failed to read data from sql, error: ' + str(error))
