@@ -1,23 +1,13 @@
+import socket
+
+from other import USERNAME, PASSWORD, check_encoding_and_move_files, convert_to_sql, sendMail
 import os
-import configparser
 import time
 from log import logger
-from timetable import timetable
 from imap_tools import MailBox, A
-from main import check_encoding_and_move_files, convert_to_sql, connection_to_sql, sendMail
 from glob import glob
 from pathlib import Path
 from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user
-
-
-# Загрузка данных из конфига
-config = configparser.ConfigParser()
-try:
-    config.read("config.ini")
-    USERNAME = config['TEST']['username']
-    PASSWORD = config['TEST']['password']
-except KeyError as e:
-    logger.error('Error when try to read config data. Maybe file not exist or field is wrong')
 
 
 # Чтение почты и выполнение действий
@@ -108,6 +98,11 @@ def processingMail():
         except KeyboardInterrupt:
             logger.warning('Email server has been stopped by Ctrl+C')
             return 'EXIT'
+        except socket.gaierror:
+            logger.log('EMAIL', 'Network is unreachable!')
+            # Ждем 2 минуты появления интернета
+            time.sleep(120)
+            continue
 
 
 with logger.catch():

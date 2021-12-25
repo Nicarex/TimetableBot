@@ -1,8 +1,17 @@
 from loguru import logger
+import sys
 
+# Удаление встроенного логгера
+logger.remove()
 
-logger.add('log/file_{time}.log', level='TRACE', rotation='30 MB', enqueue=True, encoding='utf-8', compression='zip', catch=True)
-logger.level(name='EMAIL', no=20, color='<yellow>')
-logger.level(name='VK', no=20, color='<red>')
+# Добавление уровней логгирования
+logger.level(name='EMAIL', no=30, color='<light-yellow>')
+logger.level(name='VK', no=30, color='<light-magenta>')
+logger.level(name='SQL', no=30, color='<light-red>')
+logger.level(name='OTHER', no=30, color='<light-cyan>')
+logger.level(name='TIMETABLE', no=30, color='<light-green>')
 
-logger.info('Start logging...')
+# Вывод лога
+logger.add('log/file_{time}.log', level=30, rotation='30 MB', enqueue=True, encoding='utf-8', compression='zip', catch=True)
+logger.add(sys.stderr, level=30, enqueue=True, catch=True)
+

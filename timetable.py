@@ -1,7 +1,7 @@
 from log import logger
 from datetime import timedelta
 import pendulum
-from main import get_latest_file, connection_to_sql
+from other import get_latest_file, connection_to_sql
 import os
 from glob import glob
 from sqlite3 import Row
@@ -65,7 +65,7 @@ def subject_string(conn, day, lesson, group=None, teacher=None, next=next):
             return str(lesson) + '. -'
         # Если строка с темой не пустая
         if records[0]['Themas'] is not None:
-            full_string = str(lesson) + '. ' + time_lesson[lesson] + ' (' + records[0]['Subj_type'] + ') ' + records[0]['Themas'] + ' ' + records[0]['Subject'] + records[0]['Aud']
+            full_string = str(lesson) + '. ' + str(time_lesson[lesson]) + ' (' + str(records[0]['Subj_type']) + ') ' + str(records[0]['Themas']) + ' ' + str(records[0]['Subject']) + str(records[0]['Aud'])
             # Если подгрупп нет
             if records[0]['Subg'] == 0:
                 return full_string
@@ -139,25 +139,25 @@ def subject_string(conn, day, lesson, group=None, teacher=None, next=next):
             # Проверка на группы
             if len(records) == 1:
                 return full_string
-            elif len(records) >= 1 and records[0]['Group'] != records[1][['Group']]:
+            elif len(records) >= 1 and records[0]['Group'] != records[1]['Group']:
                 if len(records) == 2:
-                    return full_string + records[1]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр.'
                 elif len(records) == 3:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр.'
                 elif len(records) == 4:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр.'
                 elif len(records) == 5:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр.'
                 elif len(records) == 6:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр.'
                 elif len(records) == 7:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр.'
                 elif len(records) == 8:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр. ' + records[7]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр. ' + records[7]['Group'] + ' гр.'
                 elif len(records) == 9:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр. ' + records[7]['Group'] + ' гр. ' + records[8]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр. ' + records[7]['Group'] + ' гр. ' + records[8]['Group'] + ' гр.'
                 elif len(records) == 10:
-                    return full_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр. ' + records[7]['Group'] + ' гр. ' + records[8]['Group'] + ' гр. ' + records[9]['Group'] + ' гр.'
+                    return full_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3]['Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6]['Group'] + ' гр. ' + records[7]['Group'] + ' гр. ' + records[8]['Group'] + ' гр. ' + records[9]['Group'] + ' гр.'
                 else:
                     # Если записей больше 10, то тут по-любому ошибка
                     logger.error('Too many records!')
@@ -174,34 +174,34 @@ def subject_string(conn, day, lesson, group=None, teacher=None, next=next):
             # Проверка на группы
             if len(records) == 1:
                 return short_string
-            elif len(records) >= 1 and records[0]['Group'] != records[1][['Group']]:
+            elif len(records) >= 1 and records[0]['Group'] != records[1]['Group']:
                 if len(records) == 2:
-                    return short_string + records[1]['Group'] + ' гр.'
+                    return short_string + ' ' + records[1]['Group'] + ' гр.'
                 elif len(records) == 3:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр.'
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр.'
                 elif len(records) == 4:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр.'
                 elif len(records) == 5:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр. ' + records[4]['Group'] + ' гр.'
                 elif len(records) == 6:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр.'
                 elif len(records) == 7:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6][
                                'Group'] + ' гр.'
                 elif len(records) == 8:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6][
                                'Group'] + ' гр. ' + records[7]['Group'] + ' гр.'
                 elif len(records) == 9:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6][
                                'Group'] + ' гр. ' + records[7]['Group'] + ' гр. ' + records[8]['Group'] + ' гр.'
                 elif len(records) == 10:
-                    return short_string + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
+                    return short_string + ' ' + records[1]['Group'] + ' гр. ' + records[2]['Group'] + ' гр. ' + records[3][
                         'Group'] + ' гр. ' + records[4]['Group'] + ' гр. ' + records[5]['Group'] + ' гр. ' + records[6][
                                'Group'] + ' гр. ' + records[7]['Group'] + ' гр. ' + records[8]['Group'] + ' гр. ' + \
                            records[9]['Group'] + ' гр.'
@@ -310,5 +310,5 @@ def timetable(group: str = None, teacher: str = None, next: str = None):
 
 # with logger.catch():
     # print(timetable(group='307', next='YES'))
-    # print(timetable(teacher='Яшкова А.С.', next='YES'))
+    # print(timetable(teacher='Горячева Н.Г.', next='YES'))
 

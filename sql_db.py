@@ -1,12 +1,34 @@
+import asyncio
+import logging
+
+from other import GROUP_TOKEN, get_latest_file, connection_to_sql, sendMail
 import sqlite3
 from log import logger
-from main import get_latest_file, connection_to_sql, sendMail
 from glob import glob
 from timetable import date_request, timetable
+from vk_api import VkApi
+from vk_api.utils import get_random_id
+from pathlib import Path
+from databases import Database
+
+
+# Инициализация
+vk_session = VkApi(token=GROUP_TOKEN, api_version='5.131')
+vk = vk_session.get_api()
+
+
+def write_msg_chat(message: str, chat_id: str):
+    vk.messages.send(chat_id=int(chat_id), message='➡ ' + message, random_id=get_random_id())
+
+
+def write_msg_user(message: str, user_id: str):
+    vk.messages.send(user_id=int(user_id), message='➡ ' + message, random_id=get_random_id())
 
 
 # Создание пользовательской базы данных
 def create_db_user_settings():
+    if Path('user_settings.db').is_file():
+        return True
     # Таблица для почты
     conn = connection_to_sql(name='user_settings.db')
     c = conn.cursor()
@@ -35,51 +57,11 @@ def create_db_user_settings():
     conn.commit()  # Сохранение изменений
     c.close()
     conn.close()  # Закрытие подключения
+    logger.log('SQL', 'User database has been created')
 
 
 # Создание базы данных пользователей, если её нет
 create_db_user_settings()
-
-
-# Предположения о группах и преподавателях на основе запроса пользователя
-def suggestions_about_request_in_timetable_db(request: str):
-    logger.debug('Received a request for suggestions "' + request + '"')
-    if len(request) <= 2:
-        logger.debug('Request <= 2 symbols, skip')
-        return 'Введите минимум 3 символа для показа возможных вариантов'
-    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
-    if db_timetable is None:
-        logger.error('Cant search suggestions because no db-files in timetable-dbs directory')
-        return False
-    conn = connection_to_sql(db_timetable)
-    conn.row_factory = sqlite3.Row
-    # Запись + символы для поиска справа
-    request = '%' + request + '%'
-    # Поиск в базе данных для группы
-    c = conn.cursor()
-    c.execute('SELECT * FROM timetable WHERE "Group" LIKE ?', (request,))
-    records_group = c.fetchall()
-    c.close()
-    # Поиск в базе данных для преподавателя
-    c = conn.cursor()
-    c.execute('SELECT * FROM timetable WHERE "Name" LIKE ?', (request,))
-    records_teacher = c.fetchall()
-    c.close()
-    conn.close()
-    # Перебор полученных значений
-    response = ''
-    for row in records_group:
-        if response.find(row['Group']) == -1:
-            response += row['Group'] + '\n'
-    for row in records_teacher:
-        if response.find(row['Name']) == -1:
-            response += row['Name'] + '\n'
-    if response:
-        logger.debug('Suggestions found')
-        return response
-    else:
-        logger.debug('No suggestions found')
-        return None
 
 
 # Отправляет письмо на почту о том, что расписание изменилось
@@ -177,27 +159,35 @@ def send_notification_vk_chat(list_now: list, list_next: list):
     for i in search_group:
         if not i['vk_id'] in sent_vk_chat:
             sent_vk_chat += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(vk_id_chat=i['vk_id'])).split('Cut\n')
+            write_msg_chat(message='Расписание на текущую неделю было изменено', chat_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_chat(message=j, chat_id=i['vk_id'])
     for i in search_teacher:
         if not i['vk_id'] in sent_vk_chat:
             sent_vk_chat += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(vk_id_chat=i['vk_id'])).split('Cut\n')
+            write_msg_chat(message='Расписание на текущую неделю было изменено', chat_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_chat(message=j, chat_id=i['vk_id'])
     for i in search_group_next:
         if not i['vk_id'] in sent_vk_chat_next:
             sent_vk_chat_next += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(next='YES', vk_id_chat=i['vk_id'])).split('Cut\n')
+            write_msg_chat(message='Расписание на следующую неделю было изменено', chat_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_chat(message=j, chat_id=i['vk_id'])
     for i in search_teacher_next:
         if not i['vk_id'] in sent_vk_chat_next:
             sent_vk_chat_next += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(next='YES', vk_id_chat=i['vk_id'])).split('Cut\n')
+            write_msg_chat(message='Расписание на следующую неделю было изменено', chat_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_chat(message=j, chat_id=i['vk_id'])
     return True
 
 
@@ -240,33 +230,41 @@ def send_notification_vk_user(list_now: list, list_next: list):
     for i in search_group:
         if not i['vk_id'] in sent_vk_user:
             sent_vk_user += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(vk_id_user=i['vk_id'])).split('Cut\n')
+            write_msg_user(message='Расписание на текущую неделю было изменено', user_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_user(message=j, user_id=i['vk_id'])
     for i in search_teacher:
         if not i['vk_id'] in sent_vk_user:
             sent_vk_user += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(vk_id_user=i['vk_id'])).split('Cut\n')
+            write_msg_user(message='Расписание на текущую неделю было изменено', user_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_user(message=j, user_id=i['vk_id'])
     for i in search_group_next:
         if not i['vk_id'] in sent_vk_user_next:
             sent_vk_user_next += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(next='YES', vk_id_user=i['vk_id'])).split('Cut\n')
+            write_msg_user(message='Расписание на следующую неделю было изменено', user_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_user(message=j, user_id=i['vk_id'])
     for i in search_teacher_next:
         if not i['vk_id'] in sent_vk_user_next:
             sent_vk_user_next += [i['vk_id']]
-            """
-            Отправка в беседу в ВК
-            """
+            answer = str(getting_timetable_for_user(next='YES', vk_id_user=i['vk_id'])).split('Cut\n')
+            write_msg_user(message='Расписание на следующую неделю было изменено', user_id=i['vk_id'])
+            for j in answer:
+                if j != '':
+                    write_msg_user(message=j, user_id=i['vk_id'])
     return True
 
 
 # Получает разницу в двух sql-файлах расписания для отправки разницы пользователям
 def getting_the_difference_in_sql_files_and_sending_them():
-    logger.trace('Search the differences in timetables...')
+    logger.log('SQL', 'Search the differences in timetables...')
     # Последняя база данных
     new_db = get_latest_file(path='timetable-dbs/*.db')
     # Предпоследняя база данных
@@ -305,6 +303,8 @@ def getting_the_difference_in_sql_files_and_sending_them():
                 if not row['Group'] in list_with_send_request_next:
                     list_with_send_request_next += [row['Group']]
     logger.trace('Got the differences. Trying to send them')
+    # logger.warning(list_with_send_request)
+    # logger.warning(list_with_send_request_next)
     if send_notification_email(list_now=list_with_send_request, list_next=list_with_send_request_next) is True:
         logger.trace('Successfully sent the differences by email')
     elif send_notification_vk_chat(list_now=list_with_send_request, list_next=list_with_send_request_next) is True:
@@ -315,288 +315,338 @@ def getting_the_difference_in_sql_files_and_sending_them():
 
 # Поиск группы и преподавателя в запросе и добавление их в параметры
 def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
-    logger.trace('Search groups and teachers in request...')
-    if request is None or request == '':
-        logger.trace('Request for search is empty')
-        return 'Параметров не найдено, так как ваше сообщение пустое'
+    """
+    Поступает запрос -> смотрим, существуют ли такие данные в бд расписания
+    есть - добавляем в базу данных пользователя, нет - ищем возможные совпадения из бд расписания ->
+    -> совпадения есть - отправляем пользователю возможные варианты, нет - отправляем False
+
+    Нужно учесть что функция не должна быть False, для её отображения пользователю
+    """
+    logger.log('SQL', 'Search request "' + request + '" in groups and teachers...')
+    if len(request) <= 2:
+        logger.log('SQL', 'Request "' + request + '" <= 2 symbols, skip')
+        return 'Запрос должен содержать минимум 3 символа'
     timetable_db = get_latest_file('timetable-dbs/*.db')
     if timetable_db is None:
         logger.error('Cant search groups and teachers in request because no timetable-db exists')
         return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
-    results_group = []
-    results_teacher = []
     conn = connection_to_sql(timetable_db)
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute('SELECT * FROM timetable')
-    results = c.fetchall()
+    timetable_rows = c.fetchall()
+    matched_group = []
+    matched_teacher = []
     # Ищет группы и преподавателей для переданного запроса и сохраняет их в свой список для дальнейшего по ним поиска
-    for row in results:
-        if request.find(row['Name']) != -1 and not row['Name'] in results_teacher:
-            results_teacher += [row['Name']]
-        if request.find(row['Group']) != -1 and not row['Group'] in results_group:
-            results_group += [row['Group']]
-    c.close()
-    conn.close()
+    for row in timetable_rows:
+        # Преподаватели
+        if request.find(row['Name']) != -1 and not row['Name'] in matched_teacher:
+            matched_teacher += [row['Name']]
+        # Группы
+        if request.find(row['Group']) != -1 and not row['Group'] in matched_group:
+            matched_group += [row['Group']]
     # Если есть хоть одна распознанная группа или преподаватель
-    if results_group or results_teacher:
-        # Обработка для почты
+    if matched_group or matched_teacher:
+        # Закрываем подключение, так как будем работать с другой бд
+        c.close()
+        conn.close()
+        # Почта
         if email is not None and (vk_id_chat is None and vk_id_user is None):
             response = ''
             conn = connection_to_sql('user_settings.db')
             conn.row_factory = sqlite3.Row
             c = conn.cursor()
             c.execute('SELECT * FROM email WHERE email = ?', (email,))
-            result = c.fetchone()
-            # Если запись есть
-            if result:
+            email_row = c.fetchone()
+            # Если запись в бд есть
+            if email_row:
                 # Поиск значений, которые уже есть в базе данных и вывод их
-                response_group = ''
                 response_teacher = ''
-                for i in results_teacher:
-                    if result['teacher'] is not None:
-                        if result['teacher'].find(i) != -1:
-                            response_teacher += i + ' '
-                for i in results_group:
-                    if result['group_id'] is not None:
-                        if result['group_id'].find(i) != -1:
-                            response_group += i + ' '
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if email_row['teacher'] is not None:
+                            if email_row['teacher'].find(i) != -1:
+                                response_teacher += i + ' '
+                if matched_group:
+                    for j in matched_group:
+                        if email_row['group_id'] is not None:
+                            if email_row['group_id'].find(j) != -1:
+                                response_group += j + ' '
                 # Если преподаватели есть и группы есть, то добавить Enter
                 if response_teacher != '' and response_group != '':
-                    response += 'Для вашего email уже сохранены преподаватели: ' + response_teacher + '\n'
+                    response += 'Для вас уже сохранены преподаватели: ' + response_teacher + '\n'
                 # Если преподаватели есть, а групп нет
                 elif response_teacher != '' and response_group == '':
-                    response += 'Для вашего email уже сохранены преподаватели: ' + response_teacher
+                    response += 'Для вас уже сохранены преподаватели: ' + response_teacher
                 # Если есть группы
                 if response_group != '':
-                    response += 'Для вашего email уже сохранены группы: ' + response_group
+                    response += 'Для вас уже сохранены группы: ' + response_group
                 # Поиск значений, которых нет в базе данных и добавление их
-                response_group = ''
                 response_teacher = ''
-                for i in results_teacher:
-                    if result['teacher'] is not None:
-                        if result['teacher'].find(i) == -1:
-                            record_that_was = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()['teacher']
-                            c.execute('UPDATE email SET teacher = ? WHERE email = ?', (record_that_was + i + '\n', email))
-                            response_teacher += i + ' '
-                    elif result['teacher'] is None:
-                        record_that_was = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()['teacher']
-                        if record_that_was is None:
-                            c.execute('UPDATE email SET teacher = ? WHERE email = ?', (i + '\n', email))
-                            response_teacher += i + ' '
-                        else:
-                            c.execute('UPDATE email SET teacher = ? WHERE email = ?', (i + '\n', email))
-                            response_teacher += i + ' '
-                for i in results_group:
-                    if result['group_id'] is not None:
-                        if result['group_id'].find(i) == -1:
-                            record_that_was = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()['group_id']
-                            c.execute('UPDATE email SET group_id = ? WHERE email = ?', (record_that_was + i + '\n', email))
-                            response_group += i + ' '
-                    elif result['group_id'] is None:
-                        record_that_was = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()['group_id']
-                        if record_that_was is None:
-                            c.execute('UPDATE email SET group_id = ? WHERE email = ?', (i + '\n', email))
-                            response_group += i + ' '
-                        else:
-                            c.execute('UPDATE email SET group_id = ? WHERE email = ?', (record_that_was + i + '\n', email))
-                            response_group += i + ' '
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if str(email_row['teacher']).find(str(i)) == -1:
+                            email_row_at_now = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()[
+                                'teacher']
+                            if email_row_at_now is not None:
+                                c.execute('UPDATE email SET teacher = ? WHERE email = ?',
+                                          (email_row_at_now + '\n' + i, email))
+                                response_teacher += ' ' + i
+                            else:
+                                c.execute('UPDATE email SET teacher = ? WHERE email = ?', (i, email))
+                                response_teacher += i
+                if matched_group:
+                    for i in matched_group:
+                        if str(email_row['group_id']).find(str(i)) == -1:
+                            email_row_at_now = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()[
+                                'group_id']
+                            if email_row_at_now is not None:
+                                c.execute('UPDATE email SET group_id = ? WHERE email = ?',
+                                          (email_row_at_now + '\n' + i, email))
+                                response_group += ' ' + i
+                            else:
+                                c.execute('UPDATE email SET group_id = ? WHERE email = ?', (i, email))
+                                response_group += i
                 # Если ответ не пустой, преподаватели есть и группы есть, то добавить Enter в начало и конец
                 if response != '' and response_teacher != '' and response_group != '':
-                    response += '\n\nДля вашего email добавлены преподаватели: ' + response_teacher + '\n'
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher + '\n'
                 # Если ответ не пустой, преподаватели есть, а групп нет, то добавить Enter в начало
                 elif response != '' and response_teacher != '' and response_group == '':
-                    response += '\n\nДля вашего email добавлены преподаватели: ' + response_teacher
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher
                 # Если ответ пустой, преподаватели есть и группы есть, то добавить Enter в конец
                 if response == '' and response_teacher != '' and response_group != '':
-                    response += '\nДля вашего email добавлены преподаватели: ' + response_teacher + '\n'
-                # Если ответ пустой, преподаватели есть, а групп нет, то ничего не добавлять
+                    response += '\nДобавлены преподаватели: ' + response_teacher + '\n'
+                # Если ответ пустой, преподаватели есть, а групп нет, то Enter не добавлять
                 elif response == '' and response_teacher != '' and response_group == '':
-                    response += 'Для вашего email добавлены преподаватели: ' + response_teacher
+                    response += 'Добавлены преподаватели: ' + response_teacher
                 # Если есть группы
-                if response_group != '':
-                    response += 'Для вашего email добавлены группы: ' + response_group
+                if response == '' and response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                elif response != '' and response_group != '':
+                    response += '\nДобавлены группы: ' + response_group
+                # Сохранение изменений и закрытие подключения
                 conn.commit()
                 c.close()
                 conn.close()
+                logger.log('SQL', 'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" to email <' + email + '>')
             # Если записей нет для этой почты, то создаем новую
             else:
-                logger.trace('No values found for email <' + email + '>. Create new entry...')
+                logger.log('SQL', 'No values found for email <' + email + '>. Create new entry...')
                 insert_group = ''
                 insert_teacher = ''
                 response_teacher = ''
                 response_group = ''
-                if results_teacher:
-                    for i in results_teacher:
-                        response_teacher += i + ' '
-                if results_group:
-                    for i in results_group:
-                        response_group += i + ' '
-                # Если преподаватели есть и группы есть, то добавить Enter
-                if response_teacher != '' and response_group != '':
-                    response += 'Для вашего email добавлены преподаватели: ' + response_teacher + '\n'
-                # Если преподаватели есть, а групп нет
-                elif response_teacher != '' and response_group == '':
-                    response += 'Для вашего email добавлены преподаватели: ' + response_teacher
-                # Если есть группы
-                if response_group != '':
-                    response += 'Для вашего email добавлены группы: ' + response_group
                 # Обработка строк для добавление в базу данных
-                if results_teacher:
-                    for i in results_teacher:
-                        insert_teacher += i + '\n'
-                if results_group:
-                    for i in results_group:
-                        insert_group += i + '\n'
-                # Для добавления NULL в базе данных
-                if insert_group == '':
-                    insert_group = None
-                if insert_teacher == '':
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            insert_teacher += i
+                        else:
+                            insert_teacher += i + '\n'
+                # Для выставления NULL в базе данных
+                else:
                     insert_teacher = None
-                c.execute('INSERT INTO email (email, group_id, teacher, notification) VALUES (?, ?, ?, 1)', (email, insert_group, insert_teacher))
+                if matched_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            insert_group += i
+                        else:
+                            insert_group += i + '\n'
+                # Для выставления NULL в базе данных
+                else:
+                    insert_group = None
+                c.execute('INSERT INTO email (email, group_id, teacher, notification) VALUES (?, ?, ?, 1)',
+                          (email, insert_group, insert_teacher))
                 conn.commit()
                 c.close()
                 conn.close()
-                logger.trace('New entry has been created for email <' + email + '>')
+                # Вывод добавленных преподавателей и групп для пользователя
+                if insert_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            response_teacher += i
+                        else:
+                            response_teacher += i + ' '
+                if insert_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            response_group += i
+                        else:
+                            response_group += i + ' '
+                # Если преподаватели есть и группы есть, то добавить Enter
+                if response_teacher != '' and response_group != '':
+                    response += 'Добавлены преподаватели: ' + response_teacher + '\n'
+                # Если преподаватели есть, а групп нет
+                elif response_teacher != '' and response_group == '':
+                    response += 'Добавлены преподаватели: ' + response_teacher
+                # Если есть группы
+                if response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                logger.log('SQL', 'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" to email <' + email + '>')
             return response
+        # ВК чат
         elif vk_id_chat is not None and (email is None and vk_id_user is None):
             response = ''
             conn = connection_to_sql('user_settings.db')
             conn.row_factory = sqlite3.Row
             c = conn.cursor()
             c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,))
-            result = c.fetchone()
-            # Если запись есть
-            if result:
+            vk_chat_row = c.fetchone()
+            # Если запись в бд есть
+            if vk_chat_row:
                 # Поиск значений, которые уже есть в базе данных и вывод их
-                response_group = ''
                 response_teacher = ''
-                for i in results_teacher:
-                    if result['teacher'] is not None:
-                        if result['teacher'].find(i) != -1:
-                            response_teacher += i + ' '
-                for i in results_group:
-                    if result['group_id'] is not None:
-                        if result['group_id'].find(i) != -1:
-                            response_group += i + ' '
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if vk_chat_row['teacher'] is not None:
+                            if vk_chat_row['teacher'].find(i) != -1:
+                                response_teacher += i + ' '
+                if matched_group:
+                    for j in matched_group:
+                        if vk_chat_row['group_id'] is not None:
+                            if vk_chat_row['group_id'].find(j) != -1:
+                                response_group += j + ' '
                 # Если преподаватели есть и группы есть, то добавить Enter
                 if response_teacher != '' and response_group != '':
-                    response += 'Для вас уже сохранены преподаватели: ' + response_teacher + '\n'
+                    response += 'Уже сохранены преподаватели: ' + response_teacher + '\n'
                 # Если преподаватели есть, а групп нет
                 elif response_teacher != '' and response_group == '':
-                    response += 'Для вас уже сохранены преподаватели: ' + response_teacher
+                    response += 'Уже сохранены преподаватели: ' + response_teacher
                 # Если есть группы
                 if response_group != '':
-                    response += 'Для вас уже сохранены группы: ' + response_group
+                    response += 'Уже сохранены группы: ' + response_group
                 # Поиск значений, которых нет в базе данных и добавление их
-                response_group = ''
                 response_teacher = ''
-                for i in results_teacher:
-                    if result['teacher'] is not None:
-                        if result['teacher'].find(i) == -1:
-                            record_that_was = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()['teacher']
-                            c.execute('UPDATE vk_chat SET teacher = ? WHERE vk_id = ?', (record_that_was + i + '\n', vk_id_chat))
-                            response_teacher += i + ' '
-                    elif result['teacher'] is None:
-                        record_that_was = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()['teacher']
-                        if record_that_was is None:
-                            c.execute('UPDATE vk_chat SET teacher = ? WHERE vk_id = ?', (i + '\n', vk_id_chat))
-                            response_teacher += i + ' '
-                        else:
-                            c.execute('UPDATE vk_chat SET teacher = ? WHERE vk_id = ?', (i + '\n', vk_id_chat))
-                            response_teacher += i + ' '
-                for i in results_group:
-                    if result['group_id'] is not None:
-                        if result['group_id'].find(i) == -1:
-                            record_that_was = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()['group_id']
-                            c.execute('UPDATE vk_chat SET group_id = ? WHERE vk_id = ?', (record_that_was + i + '\n', vk_id_chat))
-                            response_group += i + ' '
-                    elif result['group_id'] is None:
-                        record_that_was = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()['group_id']
-                        if record_that_was is None:
-                            c.execute('UPDATE vk_chat SET group_id = ? WHERE vk_id = ?', (i + '\n', vk_id_chat))
-                            response_group += i + ' '
-                        else:
-                            c.execute('UPDATE vk_chat SET group_id = ? WHERE vk_id = ?', (record_that_was + i + '\n', vk_id_chat))
-                            response_group += i + ' '
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if str(vk_chat_row['teacher']).find(str(i)) == -1:
+                            vk_chat_row_at_now = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()[
+                                'teacher']
+                            if vk_chat_row_at_now is not None:
+                                c.execute('UPDATE vk_chat SET teacher = ? WHERE vk_id = ?',
+                                          (vk_chat_row_at_now + '\n' + i, vk_id_chat))
+                                response_teacher += ' ' + i
+                            else:
+                                c.execute('UPDATE vk_chat SET teacher = ? WHERE vk_id = ?', (i, vk_id_chat))
+                                response_teacher += i
+                if matched_group:
+                    for i in matched_group:
+                        if str(vk_chat_row['group_id']).find(str(i)) == -1:
+                            vk_chat_row_at_now = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()[
+                                'group_id']
+                            if vk_chat_row_at_now is not None:
+                                c.execute('UPDATE vk_chat SET group_id = ? WHERE vk_id = ?',
+                                          (vk_chat_row_at_now + '\n' + i, vk_id_chat))
+                                response_group += ' ' + i
+                            else:
+                                c.execute('UPDATE vk_chat SET group_id = ? WHERE vk_id = ?', (i, vk_id_chat))
+                                response_group += i
                 # Если ответ не пустой, преподаватели есть и группы есть, то добавить Enter в начало и конец
                 if response != '' and response_teacher != '' and response_group != '':
-                    response += '\n\nДля вас добавлены преподаватели: ' + response_teacher + '\n'
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher + '\n'
                 # Если ответ не пустой, преподаватели есть, а групп нет, то добавить Enter в начало
                 elif response != '' and response_teacher != '' and response_group == '':
-                    response += '\n\nДля вас добавлены преподаватели: ' + response_teacher
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher
                 # Если ответ пустой, преподаватели есть и группы есть, то добавить Enter в конец
                 if response == '' and response_teacher != '' and response_group != '':
-                    response += '\nДля вас добавлены преподаватели: ' + response_teacher + '\n'
-                # Если ответ пустой, преподаватели есть, а групп нет, то ничего не добавлять
+                    response += '\nДобавлены преподаватели: ' + response_teacher + '\n'
+                # Если ответ пустой, преподаватели есть, а групп нет, то Enter не добавлять
                 elif response == '' and response_teacher != '' and response_group == '':
-                    response += 'Для вас добавлены преподаватели: ' + response_teacher
+                    response += 'Добавлены преподаватели: ' + response_teacher
                 # Если есть группы
-                if response_group != '':
-                    response += 'Для вас добавлены группы: ' + response_group
+                if response == '' and response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                elif response != '' and response_group != '':
+                    response += '\nДобавлены группы: ' + response_group
+                # Сохранение изменений и закрытие подключения
                 conn.commit()
                 c.close()
                 conn.close()
-            # Если записей нет для этой почты, то создаем новую
+                logger.log('SQL',
+                           'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" to vk chat <' + vk_id_chat + '>')
+            # Если записей нет, то создаем новую
             else:
-                logger.trace('No values found for vk_chat <' + vk_id_chat + '>. Create new entry...')
+                logger.log('SQL', 'No values found for vk chat <' + vk_id_chat + '>. Create new entry...')
                 insert_group = ''
                 insert_teacher = ''
                 response_teacher = ''
                 response_group = ''
-                if results_teacher:
-                    for i in results_teacher:
-                        response_teacher += i + ' '
-                if results_group:
-                    for i in results_group:
-                        response_group += i + ' '
-                # Если преподаватели есть и группы есть, то добавить Enter
-                if response_teacher != '' and response_group != '':
-                    response += 'Для вас добавлены преподаватели: ' + response_teacher + '\n'
-                # Если преподаватели есть, а групп нет
-                elif response_teacher != '' and response_group == '':
-                    response += 'Для вас добавлены преподаватели: ' + response_teacher
-                # Если есть группы
-                if response_group != '':
-                    response += 'Для вас добавлены группы: ' + response_group
                 # Обработка строк для добавление в базу данных
-                if results_teacher:
-                    for i in results_teacher:
-                        insert_teacher += i + '\n'
-                if results_group:
-                    for i in results_group:
-                        insert_group += i + '\n'
-                # Для добавления NULL в базе данных
-                if insert_group == '':
-                    insert_group = None
-                if insert_teacher == '':
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            insert_teacher += i
+                        else:
+                            insert_teacher += i + '\n'
+                # Для выставления NULL в базе данных
+                else:
                     insert_teacher = None
-                c.execute('INSERT INTO vk_chat (vk_id, group_id, teacher, notification) VALUES (?, ?, ?, 1)', (vk_id_chat, insert_group, insert_teacher))
+                if matched_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            insert_group += i
+                        else:
+                            insert_group += i + '\n'
+                # Для выставления NULL в базе данных
+                else:
+                    insert_group = None
+                c.execute('INSERT INTO vk_chat (vk_id, group_id, teacher, notification) VALUES (?, ?, ?, 1)',
+                          (vk_id_chat, insert_group, insert_teacher))
                 conn.commit()
                 c.close()
                 conn.close()
-                logger.trace('New entry has been created for vk_chat <' + vk_id_chat + '>')
+                # Вывод добавленных преподавателей и групп для пользователя
+                if insert_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            response_teacher += i
+                        else:
+                            response_teacher += i + ' '
+                if insert_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            response_group += i
+                        else:
+                            response_group += i + ' '
+                # Если преподаватели есть и группы есть, то добавить Enter
+                if response_teacher != '' and response_group != '':
+                    response += 'Добавлены преподаватели: ' + response_teacher + '\n'
+                # Если преподаватели есть, а групп нет
+                elif response_teacher != '' and response_group == '':
+                    response += 'Добавлены преподаватели: ' + response_teacher
+                # Если есть группы
+                if response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                logger.log('SQL',
+                           'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" to vk_chat <' + vk_id_chat + '>')
             return response
+        # ВК пользователь
         elif vk_id_user is not None and (email is None and vk_id_chat is None):
             response = ''
             conn = connection_to_sql('user_settings.db')
             conn.row_factory = sqlite3.Row
             c = conn.cursor()
             c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,))
-            result = c.fetchone()
-            # Если запись есть
-            if result:
+            vk_user_row = c.fetchone()
+            # Если запись в бд есть
+            if vk_user_row:
                 # Поиск значений, которые уже есть в базе данных и вывод их
-                response_group = ''
                 response_teacher = ''
-                for i in results_teacher:
-                    if result['teacher'] is not None:
-                        if result['teacher'].find(i) != -1:
-                            response_teacher += i + ' '
-                for i in results_group:
-                    if result['group_id'] is not None:
-                        if result['group_id'].find(i) != -1:
-                            response_group += i + ' '
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if vk_user_row['teacher'] is not None:
+                            if vk_user_row['teacher'].find(i) != -1:
+                                response_teacher += i + ' '
+                if matched_group:
+                    for j in matched_group:
+                        if vk_user_row['group_id'] is not None:
+                            if vk_user_row['group_id'].find(j) != -1:
+                                response_group += j + ' '
                 # Если преподаватели есть и группы есть, то добавить Enter
                 if response_teacher != '' and response_group != '':
                     response += 'Для вас уже сохранены преподаватели: ' + response_teacher + '\n'
@@ -607,122 +657,169 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
                 if response_group != '':
                     response += 'Для вас уже сохранены группы: ' + response_group
                 # Поиск значений, которых нет в базе данных и добавление их
-                response_group = ''
                 response_teacher = ''
-                for i in results_teacher:
-                    if result['teacher'] is not None:
-                        if result['teacher'].find(i) == -1:
-                            record_that_was = \
-                            c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()['teacher']
-                            c.execute('UPDATE vk_user SET teacher = ? WHERE vk_id = ?',
-                                      (record_that_was + i + '\n', vk_id_user))
-                            response_teacher += i + ' '
-                    elif result['teacher'] is None:
-                        record_that_was = c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()['teacher']
-                        if record_that_was is None:
-                            c.execute('UPDATE vk_user SET teacher = ? WHERE vk_id = ?', (i + '\n', vk_id_user))
-                            response_teacher += i + ' '
-                        else:
-                            c.execute('UPDATE vk_user SET teacher = ? WHERE vk_id = ?', (i + '\n', vk_id_user))
-                            response_teacher += i + ' '
-                for i in results_group:
-                    if result['group_id'] is not None:
-                        if result['group_id'].find(i) == -1:
-                            record_that_was = \
-                            c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()['group_id']
-                            c.execute('UPDATE vk_user SET group_id = ? WHERE vk_id = ?',
-                                      (record_that_was + i + '\n', vk_id_user))
-                            response_group += i + ' '
-                    elif result['group_id'] is None:
-                        record_that_was = c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()[
-                            'group_id']
-                        if record_that_was is None:
-                            c.execute('UPDATE vk_user SET group_id = ? WHERE vk_id = ?', (i + '\n', vk_id_user))
-                            response_group += i + ' '
-                        else:
-                            c.execute('UPDATE vk_user SET group_id = ? WHERE vk_id = ?',
-                                      (record_that_was + i + '\n', vk_id_user))
-                            response_group += i + ' '
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if str(vk_user_row['teacher']).find(str(i)) == -1:
+                            vk_user_row_at_now = c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()[
+                                'teacher']
+                            if vk_user_row_at_now is not None:
+                                c.execute('UPDATE vk_user SET teacher = ? WHERE vk_id = ?',
+                                          (vk_user_row_at_now + '\n' + i, vk_id_user))
+                                response_teacher += ' ' + i
+                            else:
+                                c.execute('UPDATE vk_user SET teacher = ? WHERE vk_id = ?', (i, vk_id_user))
+                                response_teacher += i
+                if matched_group:
+                    for i in matched_group:
+                        if str(vk_user_row['group_id']).find(str(i)) == -1:
+                            vk_user_row_at_now = c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()[
+                                'group_id']
+                            if vk_user_row_at_now is not None:
+                                c.execute('UPDATE vk_user SET group_id = ? WHERE vk_id = ?',
+                                          (vk_user_row_at_now + '\n' + i, vk_id_user))
+                                response_group += ' ' + i
+                            else:
+                                c.execute('UPDATE vk_user SET group_id = ? WHERE vk_id = ?', (i, vk_id_user))
+                                response_group += i
                 # Если ответ не пустой, преподаватели есть и группы есть, то добавить Enter в начало и конец
                 if response != '' and response_teacher != '' and response_group != '':
-                    response += '\n\nДля вас добавлены преподаватели: ' + response_teacher + '\n'
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher + '\n'
                 # Если ответ не пустой, преподаватели есть, а групп нет, то добавить Enter в начало
                 elif response != '' and response_teacher != '' and response_group == '':
-                    response += '\n\nДля вас добавлены преподаватели: ' + response_teacher
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher
                 # Если ответ пустой, преподаватели есть и группы есть, то добавить Enter в конец
                 if response == '' and response_teacher != '' and response_group != '':
-                    response += '\nДля вас добавлены преподаватели: ' + response_teacher + '\n'
-                # Если ответ пустой, преподаватели есть, а групп нет, то ничего не добавлять
+                    response += '\nДобавлены преподаватели: ' + response_teacher + '\n'
+                # Если ответ пустой, преподаватели есть, а групп нет, то Enter не добавлять
                 elif response == '' and response_teacher != '' and response_group == '':
-                    response += 'Для вас добавлены преподаватели: ' + response_teacher
+                    response += 'Добавлены преподаватели: ' + response_teacher
                 # Если есть группы
-                if response_group != '':
-                    response += 'Для вас добавлены группы: ' + response_group
+                if response == '' and response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                elif response != '' and response_group != '':
+                    response += '\nДобавлены группы: ' + response_group
+                # Сохранение изменений и закрытие подключения
                 conn.commit()
                 c.close()
                 conn.close()
+                logger.log('SQL',
+                           'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" to vk user <' + vk_id_user + '>')
             # Если записей нет для этой почты, то создаем новую
             else:
-                logger.trace('No values found for vk_user <' + vk_id_user + '>. Create new entry...')
+                logger.log('SQL', 'No values found for vk user <' + vk_id_user + '>. Create new entry...')
                 insert_group = ''
                 insert_teacher = ''
                 response_teacher = ''
                 response_group = ''
-                if results_teacher:
-                    for i in results_teacher:
-                        response_teacher += i + ' '
-                if results_group:
-                    for i in results_group:
-                        response_group += i + ' '
-                # Если преподаватели есть и группы есть, то добавить Enter
-                if response_teacher != '' and response_group != '':
-                    response += 'Для вас добавлены преподаватели: ' + response_teacher + '\n'
-                # Если преподаватели есть, а групп нет
-                elif response_teacher != '' and response_group == '':
-                    response += 'Для вас добавлены преподаватели: ' + response_teacher
-                # Если есть группы
-                if response_group != '':
-                    response += 'Для вас добавлены группы: ' + response_group
                 # Обработка строк для добавление в базу данных
-                if results_teacher:
-                    for i in results_teacher:
-                        insert_teacher += i + '\n'
-                if results_group:
-                    for i in results_group:
-                        insert_group += i + '\n'
-                # Для добавления NULL в базе данных
-                if insert_group == '':
-                    insert_group = None
-                if insert_teacher == '':
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            insert_teacher += i
+                        else:
+                            insert_teacher += i + '\n'
+                # Для выставления NULL в базе данных
+                else:
                     insert_teacher = None
+                if matched_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            insert_group += i
+                        else:
+                            insert_group += i + '\n'
+                # Для выставления NULL в базе данных
+                else:
+                    insert_group = None
                 c.execute('INSERT INTO vk_user (vk_id, group_id, teacher, notification) VALUES (?, ?, ?, 1)',
                           (vk_id_user, insert_group, insert_teacher))
                 conn.commit()
                 c.close()
                 conn.close()
-                logger.trace('New entry has been created for vk_user <' + vk_id_user + '>')
+                # Вывод добавленных преподавателей и групп для пользователя
+                if insert_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            response_teacher += i
+                        else:
+                            response_teacher += i + ' '
+                if insert_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            response_group += i
+                        else:
+                            response_group += i + ' '
+                # Если преподаватели есть и группы есть, то добавить Enter
+                if response_teacher != '' and response_group != '':
+                    response += 'Добавлены преподаватели: ' + response_teacher + '\n'
+                # Если преподаватели есть, а групп нет
+                elif response_teacher != '' and response_group == '':
+                    response += 'Добавлены преподаватели: ' + response_teacher
+                # Если есть группы
+                if response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                logger.log('SQL',
+                           'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" to vk user <' + vk_id_user + '>')
             return response
         else:
             logger.error('Incorrect request to search groups and teachers')
             return False
-    # Если ничего не распознанно
+    # Если ничего не распознано, то ищем возможные варианты, что хотел написать пользователь
     else:
-        logger.trace('No recognized groups or teachers')
-        return False
+        logger.log('SQL', 'No recognized groups or teachers. Start search suggestions...')
+        """
+        Пльзователи могут (и часто делают) написать фамилию с пробелом в инициалах
+        Поэтому делаем проверку на количество символов, чтобы определить, что это точно фамилия
+        И убираем последние 4 символа, чего должно быть достаточно, чтобы распознать фамилию
+        
+        Если меньше 6 символов, то это скорее всего группа, поэтому ищем весь запрос
+        """
+        if len(request) > 5:
+            request_mod = '%' + request[:-4] + '%'
+        else:
+            request_mod = '%' + request + '%'
+        # Поиск в базе данных для группы
+        c.execute('SELECT * FROM timetable WHERE "Group" LIKE ?', (request_mod,))
+        records_group = c.fetchall()
+        # Поиск в базе данных для преподавателя
+        c.execute('SELECT * FROM timetable WHERE "Name" LIKE ?', (request_mod,))
+        records_teacher = c.fetchall()
+        c.close()
+        conn.close()
+        # Перебор полученных значений
+        response = ''
+        # Если нашлась хоть одна группа
+        if records_group is not None:
+            for row in records_group:
+                if response.find(row['Group']) == -1:
+                    response += row['Group'] + '\n'
+        # Если есть хоть один преподаватель
+        if records_teacher is not None:
+            for row in records_teacher:
+                if response.find(row['Name']) == -1:
+                    response += row['Name'] + '\n'
+        # Если есть хоть одно предположение
+        if response:
+            logger.log('SQL', 'Suggestions found for request "' + request + '"')
+            return 'Возможно вы имели ввиду:\n' + response
+        else:
+            logger.log('SQL', 'No suggestions found for request "' + request + '"')
+            return False
 
 
 # Включение и отключение уведомлений для пользователей
 def enable_and_disable_notifications(enable: str = None, disable: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
     # Обработка email
     if email is not None and (vk_id_chat is None and vk_id_user is None):
-        logger.trace('Incoming request to enable or disable notifications for email = <' + email + '>')
+        logger.log('SQL', 'Incoming request to enable or disable notifications for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
         # Если включаем уведомления
         if enable is not None:
             c.execute('UPDATE email SET notification = ? WHERE email = ?', (1, email))
-            logger.trace('Notifications for email <' + email + '> are enabled')
+            logger.log('SQL', 'Notifications for email <' + email + '> are enabled')
             conn.commit()
             c.close()
             conn.close()
@@ -730,7 +827,7 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
         # Если отключаем уведомления
         elif disable is not None:
             c.execute('UPDATE email SET notification = ? WHERE email = ?', (0, email))
-            logger.trace('Notifications for email <' + email + '> are disabled')
+            logger.log('SQL', 'Notifications for email <' + email + '> are disabled')
             conn.commit()
             c.close()
             conn.close()
@@ -743,14 +840,14 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
             return '\nПроизошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
     # Обработка vk chat
     elif vk_id_chat is not None and (email is None and vk_id_user is None):
-        logger.trace('Incoming request to enable or disable notifications for vk chat = <' + vk_id_chat + '>')
+        logger.log('SQL', 'Incoming request to enable or disable notifications for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
         # Если включаем уведомления
         if enable is not None:
             c.execute('UPDATE vk_chat SET notification = ? WHERE vk_id = ?', (1, vk_id_chat))
-            logger.trace('Notifications for vk chat <' + vk_id_chat + '> are enabled')
+            logger.log('SQL', 'Notifications for vk chat <' + vk_id_chat + '> are enabled')
             conn.commit()
             c.close()
             conn.close()
@@ -758,7 +855,7 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
         # Если отключаем уведомления
         elif disable is not None:
             c.execute('UPDATE vk_chat SET notification = ? WHERE vk_id = ?', (0, vk_id_chat))
-            logger.trace('Notifications for vk chat <' + vk_id_chat + '> are disabled')
+            logger.log('SQL', 'Notifications for vk chat <' + vk_id_chat + '> are disabled')
             conn.commit()
             c.close()
             conn.close()
@@ -771,14 +868,14 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
             return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
     # Обработка vk user
     elif vk_id_user is not None and (email is None and vk_id_chat is None):
-        logger.trace('Incoming request to enable or disable notifications for vk user = <' + vk_id_user + '>')
+        logger.log('SQL', 'Incoming request to enable or disable notifications for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
         # Если включаем уведомления
         if enable is not None:
             c.execute('UPDATE vk_user SET notification = ? WHERE vk_id = ?', (1, vk_id_user))
-            logger.trace('Notifications for vk user <' + vk_id_user + '> are enabled')
+            logger.log('SQL', 'Notifications for vk user <' + vk_id_user + '> are enabled')
             conn.commit()
             c.close()
             conn.close()
@@ -786,7 +883,7 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
         # Если отключаем уведомления
         elif disable is not None:
             c.execute('UPDATE vk_user SET notification = ? WHERE vk_id = ?', (0, vk_id_user))
-            logger.trace('Notifications for vk user <' + vk_id_user + '> are disabled')
+            logger.log('SQL', 'Notifications for vk user <' + vk_id_user + '> are disabled')
             conn.commit()
             c.close()
             conn.close()
@@ -806,7 +903,7 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
 def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
     # Обработка email
     if email is not None and (vk_id_chat is None and vk_id_user is None):
-        logger.trace('Incoming request to delete all saved groups and teachers for email = <' + email + '>')
+        logger.log('SQL', 'Incoming request to delete all saved groups and teachers for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
@@ -819,19 +916,19 @@ def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = No
                 conn.commit()
                 c.close()
                 conn.close()
-                logger.trace('All saved groups and teachers for email <' + email + '> are deleted')
+                logger.log('SQL', 'All saved groups and teachers for email <' + email + '> are deleted')
                 return 'Сохраненные параметры групп и преподавателей успешно удалены'
             else:
-                logger.trace('No saved groups or teachers for email <' + email + '>')
+                logger.log('SQL', 'No saved groups or teachers for email <' + email + '>')
                 return 'Для вас нет сохраненных групп или преподавателей для отправки'
         else:
             c.close()
             conn.close()
-            logger.trace('No saved groups or teachers for email <' + email + '>')
+            logger.log('SQL', 'No saved groups or teachers for email <' + email + '>')
             return 'Для вас нет сохраненных групп или преподавателей для отправки'
     # Обработка vk chat
     elif vk_id_chat is not None and (email is None and vk_id_user is None):
-        logger.trace('Incoming request to delete all saved groups and teachers for vk chat = <' + vk_id_chat + '>')
+        logger.log('SQL', 'Incoming request to delete all saved groups and teachers for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
@@ -844,19 +941,19 @@ def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = No
                 conn.commit()
                 c.close()
                 conn.close()
-                logger.trace('All saved groups and teachers for vk chat <' + vk_id_chat + '> are deleted')
+                logger.log('SQL', 'All saved groups and teachers for vk chat <' + vk_id_chat + '> are deleted')
                 return 'Сохраненные параметры групп и преподавателей успешно удалены'
             else:
-                logger.trace('No saved groups or teachers for vk chat <' + vk_id_chat + '>')
+                logger.log('SQL', 'No saved groups or teachers for vk chat <' + vk_id_chat + '>')
                 return 'Для вас нет сохраненных групп или преподавателей для отправки'
         else:
             c.close()
             conn.close()
-            logger.trace('No saved groups or teachers for vk chat <' + vk_id_chat + '>')
+            logger.log('SQL', 'No saved groups or teachers for vk chat <' + vk_id_chat + '>')
             return 'Для вас нет сохраненных групп или преподавателей для отправки'
     # Обработка vk user
     elif vk_id_user is not None and (email is None and vk_id_chat is None):
-        logger.trace('Incoming request to delete all saved groups and teachers for vk user = <' + vk_id_user + '>')
+        logger.log('SQL', 'Incoming request to delete all saved groups and teachers for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
         c = conn.cursor()
@@ -869,15 +966,15 @@ def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = No
                 conn.commit()
                 c.close()
                 conn.close()
-                logger.trace('All saved groups and teachers for vk user <' + vk_id_user + '> are deleted')
+                logger.log('SQL', 'All saved groups and teachers for vk user <' + vk_id_user + '> are deleted')
                 return 'Сохраненные параметры групп и преподавателей успешно удалены'
             else:
-                logger.trace('No saved groups or teachers for vk user <' + vk_id_user + '>')
+                logger.log('SQL', 'No saved groups or teachers for vk user <' + vk_id_user + '>')
                 return 'Для вас нет сохраненных групп или преподавателей для отправки'
         else:
             c.close()
             conn.close()
-            logger.trace('No saved groups or teachers for vk user <' + vk_id_user + '>')
+            logger.log('SQL', 'No saved groups or teachers for vk user <' + vk_id_user + '>')
             return 'Для вас нет сохраненных групп или преподавателей для отправки'
     else:
         logger.error('Incorrect request to delete saved groups and teachers. Email, vk chat and vk user are undefined')
@@ -903,13 +1000,13 @@ def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user
                 groups_answer = ''
                 for i in groups:
                     groups_answer += i + ' '
-                answer += 'Сохранены следующие группы: ' + groups_answer + '\n'
+                answer += 'Сохранены группы: ' + groups_answer + '\n'
             if result['teacher'] is not None:
                 teachers = str(result['teacher']).split('\n')
                 teachers_answer = ''
                 for i in teachers:
                     teachers_answer += i + ' '
-                answer += 'Сохранены следующие преподаватели: ' + teachers_answer + '\n'
+                answer += 'Сохранены преподаватели: ' + teachers_answer + '\n'
             if result['group_id'] is None and result['teacher'] is None:
                 answer += 'Нет сохраненных групп и преподавателей\n'
             if str(result['notification']) == '1':
@@ -937,13 +1034,13 @@ def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user
                 groups_answer = ''
                 for i in groups:
                     groups_answer += i + ' '
-                answer += 'Сохранены следующие группы: ' + groups_answer + '\n'
+                answer += 'Сохранены группы: ' + groups_answer + '\n'
             if result['teacher'] is not None:
                 teachers = str(result['teacher']).split('\n')
                 teachers_answer = ''
                 for i in teachers:
                     teachers_answer += i + ' '
-                answer += 'Сохранены следующие преподаватели: ' + teachers_answer + '\n'
+                answer += 'Сохранены преподаватели: ' + teachers_answer + '\n'
             if result['group_id'] is None and result['teacher'] is None:
                 answer += 'Нет сохраненных групп и преподавателей\n'
             if str(result['notification']) == '1':
@@ -971,13 +1068,13 @@ def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user
                 groups_answer = ''
                 for i in groups:
                     groups_answer += i + ' '
-                answer += 'Сохранены следующие группы: ' + groups_answer + '\n'
+                answer += 'Сохранены группы: ' + groups_answer + '\n'
             if result['teacher'] is not None:
                 teachers = str(result['teacher']).split('\n')
                 teachers_answer = ''
                 for i in teachers:
                     teachers_answer += i + ' '
-                answer += 'Сохранены следующие преподаватели: ' + teachers_answer + '\n'
+                answer += 'Сохранены преподаватели: ' + teachers_answer + '\n'
             if result['group_id'] is None and result['teacher'] is None:
                 answer += 'Для вас нет сохраненных групп и преподавателей\n'
             if str(result['notification']) == '1':
@@ -1043,12 +1140,12 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
                 groups = str(result['group_id']).split('\n')
                 for i in groups:
                     if i != '':
-                        groups_answer += timetable(group=str(i), next=next) + '\n'
+                        groups_answer += 'Cut\n' + timetable(group=str(i), next=next) + '\n'
             if result['teacher'] is not None:
                 teachers = str(result['teacher']).split('\n')
                 for i in teachers:
                     if i != '':
-                        teachers_answer += timetable(teacher=str(i), next=next) + '\n'
+                        teachers_answer += 'Cut\n' + timetable(teacher=str(i), next=next) + '\n'
             if result['group_id'] is None and result['teacher'] is None:
                 answer = 'Нет сохраненных групп и преподавателей\n'
             return groups_answer + teachers_answer + answer
@@ -1073,12 +1170,12 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
                 groups = str(result['group_id']).split('\n')
                 for i in groups:
                     if i != '':
-                        groups_answer += timetable(group=str(i), next=next) + '\n'
+                        groups_answer += 'Cut\n' + timetable(group=str(i), next=next) + '\n'
             if result['teacher'] is not None:
                 teachers = str(result['teacher']).split('\n')
                 for i in teachers:
                     if i != '':
-                        teachers_answer += timetable(teacher=str(i), next=next) + '\n'
+                        teachers_answer += 'Cut\n' + timetable(teacher=str(i), next=next) + '\n'
             if result['group_id'] is None and result['teacher'] is None:
                 answer = 'Нет сохраненных групп и преподавателей\n'
             return groups_answer + teachers_answer + answer
@@ -1089,6 +1186,7 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
         logger.error('Incorrect timetable request. Email, vk chat and vk user are undefined')
         return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
 
-# with logger.catch():
-#     print(enable_and_disable_notifications(enable='YES', vk_id_user='1'))
+
+with logger.catch():
+    print(search_group_and_teacher_in_request(request='413а', email='1'))
 

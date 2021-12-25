@@ -16,8 +16,9 @@ try:
     config.read("config.ini")
     USERNAME = config['TEST']['username']
     PASSWORD = config['TEST']['password']
+    GROUP_TOKEN = config['TEST']['group_token']
 except KeyError as e:
-    logger.error('Error when try to read config data. Maybe file not exist or field is wrong')
+    logger.critical('Error when try to read config data. Maybe file not exist or fields is wrong')
 
 
 # Отправка почты через yagmail
@@ -40,7 +41,7 @@ def get_latest_file(path: str):
     # Если есть хоть один файл
     if list_of_files:
         latest_file = max(list_of_files, key=os.path.getmtime)
-        logger.trace('Latest file is <' + latest_file + '>')
+        logger.log('OTHER', 'Latest file is <' + latest_file + '>')
         return latest_file
     else:
         logger.warning('No files in this path ' + path)
@@ -92,7 +93,7 @@ def check_encoding_and_move_files(path: str, encoding: str):
 def connection_to_sql(name: str):
     try:
         conn = sqlite3.connect(database=name, timeout=20)
-        logger.trace('Successfully connect to sql db <' + name + '>')
+        logger.log('OTHER', 'Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:
         logger.error('Failed to read data from sql, error: ' + str(error))
         return None
