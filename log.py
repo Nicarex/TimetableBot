@@ -5,7 +5,7 @@ import sys
 logger.remove()
 
 # Добавление уровней логгирования
-logger.level(name='EMAIL', no=30, color='<light-yellow>')
+logger.level(name='MAIL', no=30, color='<light-yellow>')
 logger.level(name='VK', no=30, color='<light-magenta>')
 logger.level(name='SQL', no=30, color='<light-red>')
 logger.level(name='OTHER', no=30, color='<light-cyan>')

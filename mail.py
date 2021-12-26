@@ -1,6 +1,5 @@
-import socket
-
-from other import USERNAME, PASSWORD, check_encoding_and_move_files, convert_to_sql, sendMail
+from socket import gaierror
+from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail
 import os
 import time
 from log import logger
@@ -12,21 +11,18 @@ from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_
 
 # Чтение почты и выполнение действий
 def processingMail():
-    logger.info('Email server started...')
+    logger.log('MAIL', 'Email server started...')
+    login_info = read_config(email='YES')
     while True:
         try:
-            # logger.debug('Start work...')
             # Подключение к gmail
-            mailbox = MailBox('imap.gmail.com')
-            mailbox.login(username=USERNAME, password=PASSWORD)
+            mailbox = MailBox(login_info[0])
+            mailbox.login(username=login_info[1], password=login_info[2])
             # Получение непрочитанных сообщений с ярлыком CSV files
             messages_csv = mailbox.fetch(A(seen=False, gmail_label='CSV files'))
             for msg in messages_csv:
-                logger.log('EMAIL', 'CSV files message from ' + msg.from_)
+                logger.log('MAIL', 'CSV files message from ' + msg.from_)
                 download_folder = 'downloads'
-                # Проверка на существование пути
-                if not os.path.isdir(download_folder):
-                    os.makedirs(download_folder, exist_ok=True)
                 # Скачивание вложений
                 for attachment in msg.attachments:
                     # Скачивание файла в расширение tmp
@@ -53,8 +49,7 @@ def processingMail():
             # Получение непрочитанных сообщений с ярлыком Settings
             messages_set = mailbox.fetch(A(seen=False, gmail_label='Settings'))
             for msg in messages_set:
-                logger.log('EMAIL', 'Settings message from ' + msg.from_)
-                # Нашел ли ты хоть что-то в письме, если нет, то сказать, что ничего не нашел
+                logger.log('MAIL', 'Settings message from ' + msg.from_)
                 answer = ''
                 if msg.text.lower().find('текущие') != -1:
                     answer = display_saved_settings(email=msg.from_)
@@ -80,7 +75,7 @@ def processingMail():
             # Получение непрочитанных сообщений с ярлыком Send
             messages_send = mailbox.fetch(A(seen=False, gmail_label='Send'))
             for msg in messages_send:
-                logger.log('EMAIL', 'Send message from ' + msg.from_)
+                logger.log('MAIL', 'Send message from ' + msg.from_)
                 text = msg.text.lower()
                 answer = ''
                 if text.find('текущ') != -1:
@@ -98,7 +93,8 @@ def processingMail():
         except KeyboardInterrupt:
             logger.warning('Email server has been stopped by Ctrl+C')
             return 'EXIT'
-        except socket.gaierror:
+        # Подключение к интернету
+        except gaierror:
             logger.log('EMAIL', 'Network is unreachable!')
             # Ждем 2 минуты появления интернета
             time.sleep(120)

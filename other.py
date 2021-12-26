@@ -10,15 +10,33 @@ import configparser
 import yagmail
 
 
-# Загрузка данных из конфига
-config = configparser.ConfigParser()
-try:
-    config.read("config.ini")
-    USERNAME = config['TEST']['username']
-    PASSWORD = config['TEST']['password']
-    GROUP_TOKEN = config['TEST']['group_token']
-except KeyError as e:
-    logger.critical('Error when try to read config data. Maybe file not exist or fields is wrong')
+def read_config(email: str = None, vk: str = None):
+    # Загрузка данных из конфига
+    config = configparser.ConfigParser()
+    try:
+        config.read("config.ini")
+        if email is not None:
+            imap_server = str(config['MAIL']['imap_server'])
+            username = str(config['TEST']['username'])
+            password = str(config['TEST']['password'])
+            return imap_server, username, password
+        elif vk is not None:
+            group_token = str(config['TEST']['group_token'])
+            return group_token
+    except KeyError as e:
+        logger.critical('Error when try to read config data. Maybe file not exist or fields are wrong')
+
+
+def make_need_dirs():
+    # Если пути не существует - создать
+    if not os.path.isdir('timetable-dbs'):
+        os.makedirs('timetable-dbs', exist_ok=True)
+    if not os.path.isdir('timetable-files'):
+        os.makedirs('timetable-files', exist_ok=True)
+    if not os.path.isdir('downloads'):
+        os.makedirs('downloads', exist_ok=True)
+    if not os.path.isdir('log'):
+        os.makedirs('log', exist_ok=True)
 
 
 # Отправка почты через yagmail
@@ -29,7 +47,7 @@ def sendMail(to_email, subject, text):
     signature = '\n\n\nСайт-инструкция: https://vk.link/bot_agz'
     # Непосредственно отправка письма
     yag.send(to=to_email, subject=subject, contents=text + signature)
-    logger.log('EMAIL', 'Message was sent to <' + to_email + '> with subject: "' + subject + '"')
+    logger.log('MAIL', 'Message was sent to <' + to_email + '> with subject: "' + subject + '"')
 
 
 # Получает последний измененный файл
@@ -37,7 +55,7 @@ def get_latest_file(path: str):
     """
     example path = 'timetable-dbs/timetable*.db'
     """
-    list_of_files = glob(path)  # * means all if need specific format then *.csv
+    list_of_files = glob(path)
     # Если есть хоть один файл
     if list_of_files:
         latest_file = max(list_of_files, key=os.path.getmtime)
@@ -93,7 +111,7 @@ def check_encoding_and_move_files(path: str, encoding: str):
 def connection_to_sql(name: str):
     try:
         conn = sqlite3.connect(database=name, timeout=20)
-        logger.log('OTHER', 'Successfully connect to sql db <' + name + '>')
+        logger.log('SQL', 'Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:
         logger.error('Failed to read data from sql, error: ' + str(error))
         return None
@@ -102,11 +120,7 @@ def connection_to_sql(name: str):
 
 # Конвертирует CSV-файлы в SQL-файл
 def convert_to_sql(csv_files_directory: str):
-    """
-    example:
-    for file in os.listdir('downloads'):
-        convert_to_sql()
-    """
+    logger.log('OTHER', 'Request to convert csv to sql')
     # Если пути не существует - создать
     if not os.path.isdir('timetable-dbs'):
         os.makedirs('timetable-dbs', exist_ok=True)
@@ -126,6 +140,4 @@ def convert_to_sql(csv_files_directory: str):
         logger.success('File <' + csv_file + '> successfully converted to timetable_' + date + '.db')
     conn.close()
     return True
-
-# convert_to_sql('downloads')
 
