@@ -1,8 +1,8 @@
 loguru>=0.5.3
 yagmail>=0.14.260
-schedule>=1.1.0
+imap_tools>=0.50.2
 pendulum>=2.1.2
 chardet>=4.0.0
 pandas>=1.3.5
 vkbottle>=4.0.4
-imap_tools>=0.50.2
+vk_api>=11.9.7
