@@ -1,8 +1,11 @@
 downloads/
 log/
+timetable-dbs/
+timetable-files/
 config.ini
 psevdocode
 *.csv
 *.dbf
 *.xls
 *.txt
+*.db
