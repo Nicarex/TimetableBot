@@ -2,6 +2,7 @@ downloads/
 log/
 timetable-dbs/
 timetable-files/
+.idea
 config.ini
 psevdocode
 *.csv
