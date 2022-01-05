@@ -1,8 +1,12 @@
 downloads/
 log/
+timetable-dbs/
+timetable-files/
+.idea
 config.ini
 psevdocode
 *.csv
 *.dbf
 *.xls
 *.txt
+*.db
