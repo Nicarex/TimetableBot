@@ -2,7 +2,7 @@ from socket import gaierror
 from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail
 import os
 import time
-from log import logger
+from logger import logger
 from imap_tools import MailBox, A
 from glob import glob
 from pathlib import Path

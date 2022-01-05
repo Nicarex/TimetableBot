@@ -1,4 +1,4 @@
-from log import logger
+from logger import logger
 from glob import glob
 import os
 from chardet import detect

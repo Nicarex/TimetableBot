@@ -1,8 +1,7 @@
-from log import logger
+from logger import logger
 from datetime import timedelta
 import pendulum
 from other import get_latest_file, connection_to_sql
-import os
 from glob import glob
 from sqlite3 import Row
 

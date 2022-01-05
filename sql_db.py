@@ -1,6 +1,6 @@
 from other import read_config, get_latest_file, connection_to_sql, sendMail
 import sqlite3
-from log import logger
+from logger import logger
 from glob import iglob
 from timetable import date_request, timetable
 from vk_api import VkApi

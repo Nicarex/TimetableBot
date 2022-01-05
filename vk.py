@@ -1,4 +1,4 @@
-from log import logger
+from logger import logger
 from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, KeyboardButtonColor, OpenLink
 from vkbottle.bot import Bot, Message
 from other import read_config
