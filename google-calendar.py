@@ -3,6 +3,10 @@ from other import connection_to_sql, get_latest_file
 from sqlite3 import Row
 import time
 
+from socket import gaierror
+from http.client import RemoteDisconnected
+from httplib2.error import ServerNotFoundError
+
 from gcsa.google_calendar import GoogleCalendar
 from gcsa.event import Event
 import pendulum
@@ -13,6 +17,7 @@ from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 
 
+# Создание сервиса календаря
 def create_calendar_service(client_secret_file: str, token_file: str):
     client_secret_file = client_secret_file
     api_service_name = 'calendar'
@@ -31,24 +36,22 @@ def create_calendar_service(client_secret_file: str, token_file: str):
             pickle.dump(cred, token)
     try:
         service = build(api_service_name, api_version, credentials=cred)
-        print(api_service_name, api_version, 'service created successfully')
         return service
     except Exception as e:
-        print(e)
-        print(f'Failed to create service instance for {api_service_name}')
+        logger.error(f'Failed to create service instance for {str(api_service_name)}, error: "{str(e)}"')
         return None
 
 
 # Импорт расписания из бд расписания в Google календарь
 def import_timetable_to_calendar(teacher: str = None, group_id: str = None):
     """
-    Ищем все записи для преподавателя или группы в бд расписания
-    Сортируем полученные записи по неделе, дню и номеру занятия
-    И по дате записи добавляем их в календарь
-    Когда все отсортированные записи закончатся, возвращаем True
+    Ищем все записи для преподавателя или группы в бд расписания.
+    Сортируем полученные записи по неделе, дню и номеру занятия.
+    И по дате записи добавляем их в календарь.
+    Когда все отсортированные записи закончатся, возвращаем True.
     Если недошли до последней записи, то возвращаем False
     """
-    logger.log('CALENDAR', 'Request to make timetable in Google calendar')
+    logger.log('CALENDAR', f'Request to make timetable in Google calendar for teacher = "{str(teacher)}" or group = "{str(group_id)}"')
     # Получение записей из бд расписания
     db_timetable = get_latest_file('timetable-dbs/timetable*.db')
     if db_timetable is None:
@@ -58,78 +61,117 @@ def import_timetable_to_calendar(teacher: str = None, group_id: str = None):
     conn.row_factory = Row
     c = conn.cursor()
     if teacher is not None and group_id is None:
-        timetable_rows = c.execute('SELECT * FROM timetable WHERE "Name" = ? ORDER BY "Week", "Day", "Les", "Subg"', (teacher,)).fetchall()
-        # timetable_rows = iter(timetable_rows)
+        timetable_rows = c.execute('SELECT * FROM timetable WHERE "Name" = ? ORDER BY "Week", "Day", "Les", "Group", "Subg"', (teacher,)).fetchall()
         c.close()
         conn.close()
+        conn = connection_to_sql(name='calendars_list.db')
+        conn.row_factory = Row
+        c = conn.cursor()
+        calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (teacher,)).fetchone()
+        c.close()
+        conn.close()
+        if not calendar_row:
+            logger.error(f'Cant import timetable to calendar because no calendar exist for teacher = "{teacher}"')
+            return False
     elif group_id is not None and teacher is None:
         timetable_rows = c.execute('SELECT * FROM timetable WHERE "Group" = ? ORDER BY "Week", "Day", "Les", "Subg"', (group_id,)).fetchall()
-        # timetable_rows = iter(timetable_rows)
         c.close()
         conn.close()
+        conn = connection_to_sql(name='calendars_list.db')
+        conn.row_factory = Row
+        c = conn.cursor()
+        calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (group_id,)).fetchone()
+        c.close()
+        conn.close()
+        if not calendar_row:
+            logger.error(f'Cant import timetable to calendar because no calendar exist for group = "{group_id}"')
+            return False
     else:
         logger.error('Incorrect request to import timetable to calendar. Teacher and group_id are None')
         c.close()
         conn.close()
         return False
-
-    # print(len(timetable_rows))
-
     # Добавление записей в календарь
-    # calendar = GoogleCalendar(credentials_path='calendar-config.json', token_path='calendar-token.pickle')
-    logger.log('CALENDAR', 'Successfully authorized')
+    calendar = GoogleCalendar(calendar=str(calendar_row['calendar_id']), credentials_path='calendar-config.json', token_path='calendar-token.pickle')
+    exclude_row = []
+    logger.log('CALENDAR', f'Start import timetable to calendar = <{str(calendar_row["calendar_id"])}>')
     for index, elem in enumerate(timetable_rows):
+        # Пропуск строки, если она есть в переменной
+        if exclude_row:
+            if elem in exclude_row:
+                continue
         # Дата
-        date = pendulum.from_format(string=str(elem['Date']), fmt='D-MM-YYYY')
-        date = date.format(fmt='D / MM / YYYY')
-        if elem['Les'] == 1:
-            start = date[9:00]
-            end = date[10:30]
-        elif elem['Les'] == 2:
-            start = date[10:45]
-            end = date[12:15]
-        elif elem['Les'] == 3:
-            start = date[12:30]
-            end = date[14:00]
-        elif elem['Les'] == 4:
-            start = date[14:45]
-            end = date[16:15]
-        elif elem['Les'] == 5:
-            start = date[16:25]
-            end = date[17:55]
+        if str(elem['Les']) == '1':
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} 09:00", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} 10:30", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+        elif str(elem['Les']) == '2':
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} 10:45", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} 12:15", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+        elif str(elem['Les']) == '3':
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} 12:30", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:00", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+        elif str(elem['Les']) == '4':
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:45", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:15", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+        elif str(elem['Les']) == '5':
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:25", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} 17:55", fmt='D-MM-YYYY HH:mm', tz='Europe/Moscow')
         else:
             logger.error('Incorrect lesson value = ' + str(elem['Les']))
             return False
-
-        # Строка с расписанием
+        # Формирование строки с расписанием
+        timetable_string = ''
         if teacher is not None and group_id is None:
-            # Если есть следующий элемент списка
-            if not index+1 > len(timetable_rows):
-                # Если дата следующего элемента не равна дате текущего, то есть существует только одна запись для этого дня
-                if timetable_rows[index+1]['Date'] != elem['Date']:
+            # Строка в зависимости от темы
+            if elem['Themas'] is not None:
+                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
+            elif elem['Themas'] is None:
+                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
 
+            # Обработка нескольких групп на одном занятии
+            for i in range(1, 11):
+                # Если есть такой элемент в списке
+                if index+i < len(timetable_rows):
+                    if str(timetable_rows[index+i]['Date']) == str(elem['Date']) and str(timetable_rows[index+i]['Les']) == str(elem['Les']):
+                        timetable_string += f" {str(timetable_rows[index+i]['Group'])} гр."
+                        exclude_row += [timetable_rows[index+i]]
         elif group_id is not None and teacher is None:
-            pass
-        else:
-            pass
-
-
-
-        # event = Event(
-        #     'Строка с расписанием',
-        #     start=start,
-        #     end=end
-        # )
-    logger.log('CALENDAR', 'Stop')
-
-
-
-with logger.catch():
-    import_timetable_to_calendar(teacher='Синдеев С.А.')
+            # Строка в зависимости от темы
+            if elem['Themas'] is not None:
+                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])}'
+            elif elem['Themas'] is None:
+                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])}'
+            # Обработка нескольких подгрупп для одной группы
+            for i in range(1, 8):
+                # Если есть такой элемент в списке
+                if index + i < len(timetable_rows):
+                    if str(timetable_rows[index+i]['Date']) == str(elem['Date']) and str(timetable_rows[index+i]['Les']) == str(elem['Les']):
+                        if str(timetable_rows[index+i]['Aud']) != str(elem['Aud']):
+                            timetable_string += f"{str(timetable_rows[index+i]['Aud'])}"
+                        exclude_row += [timetable_rows[index+i]]
+        # Создание события для календаря
+        event = Event(
+            summary=timetable_string,
+            start=start_time,
+            end=end_time)
+        # Добавление события в календарь
+        try:
+            calendar.add_event(event)
+        except KeyboardInterrupt:
+            logger.log('CALENDAR', f'Import timetable to calendar has been stopped by Ctrl+C')
+            calendar.clear()
+            return False
+        except gaierror or RemoteDisconnected:
+            logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
+            time.sleep(60)
+        except ServerNotFoundError:
+            logger.error('Cant import timetable to calendar because internet is disconnected')
+            return False
+    logger.log('CALENDAR', f'Import timetable to calendar = <{str(calendar_row["calendar_id"])}> has been finished')
 
 
 # Создание календаря для преподавателя или группы
-def create_shared_calendar(teacher: str = None, group_id: str = None):
+def create_shared_calendar_and_add_timetable(teacher: str = None, group_id: str = None):
     """
     Получаем на вход преподавателя или группу, для которого нужно создать календарь
     Проверяем, существует ли уже календарь для переданного значения с id и url:
@@ -196,71 +238,123 @@ def create_shared_calendar(teacher: str = None, group_id: str = None):
         conn.close()
         return False
 
-    # Создание календаря
-    create_body = {}
-    sql_query = ''
-    if teacher is not None:
-        # Преподаватель
-        create_body = {
-            'description':      'Расписание занятий для преподавателя ' + teacher,
-            'summary':          teacher,
-            'timeZone':         'Europe/Moscow'
-        }
-        sql_query = ' WHERE teacher = "' + teacher + '"'
-    elif group_id is not None:
-        # Группа
-        create_body = {
-            'description':      'Расписание занятий для группы ' + group_id,
-            'summary':          group_id,
-            'timeZone':         'Europe/Moscow'
-        }
-        sql_query = ' WHERE group_id = "' + group_id + '"'
-    try:
-        service = create_calendar_service(client_secret_file='calendar-config.json', token_file='calendar-token.pickle')
+    # Удаление записи в бд календарей в случае ошибки
+    def delete_row_in_calendar_db(teacher: str = None, group_id: str = None):
+        conn = connection_to_sql(name='calendars_list.db')
+        conn.row_factory = Row
+        c = conn.cursor()
+        if teacher is not None:
+            c.execute('DELETE FROM calendars WHERE teacher = ?', (teacher,))
+        elif group_id is not None:
+            c.execute('DELETE FROM calendars WHERE group_id = ?', (group_id,))
+        conn.commit()
+        c.close()
+        conn.close()
+        logger.log('CALENDAR', f'Successful delete row in calendar db for teacher = "{str(teacher)}" or group = "{str(group_id)}"')
 
+    # Удаление календаря в Google, если он был создан
+    def delete_calendar_in_google(teacher: str = None, group_id: str = None):
+        conn = connection_to_sql(name='calendars_list.db')
+        conn.row_factory = Row
+        c = conn.cursor()
+        if teacher is not None:
+            calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (teacher,)).fetchone()
+        elif group_id is not None:
+            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (group_id,)).fetchone()
+        else:
+            return False
+        c.close()
+        conn.close()
+        if calendar_row:
+            if calendar_row['calendar_id'] is not None:
+                # Авторизация
+                service = create_calendar_service(client_secret_file='calendar-config.json', token_file='calendar-token.pickle')
+                service.calendars().delete(calendarId=str(calendar_row['calendar_id'])).execute()
+                logger.log('CALENDAR', f'Successful delete calendar in Google for teacher = "{str(teacher)}" or group = "{str(group_id)}"')
+    # Выполнение API запросов
+    try:
+        # Авторизация
+        service = create_calendar_service(client_secret_file='calendar-config.json', token_file='calendar-token.pickle')
         # Создание календаря
+        create_body = {}
+        sql_query = ''
+        if teacher is not None:
+            # Преподаватель
+            create_body = {
+                'description': 'Расписание занятий для преподавателя ' + teacher,
+                'summary': teacher,
+                'timeZone': 'Europe/Moscow'
+            }
+            sql_query = f'WHERE teacher = "{teacher}"'
+        elif group_id is not None:
+            # Группа
+            create_body = {
+                'description': 'Расписание занятий для группы ' + group_id,
+                'summary': group_id,
+                'timeZone': 'Europe/Moscow'
+            }
+            sql_query = f'WHERE group_id = "{group_id}"'
         response_calendar = service.calendars().insert(body=create_body).execute()
+        # Проверка ответа на правильность
         if response_calendar['id']:
             conn = connection_to_sql(calendar_db)
             c = conn.cursor()
-            sql_query_create = 'UPDATE calendars SET calendar_id = ?' + sql_query
+            sql_query_create = f'UPDATE calendars SET calendar_id = ? {sql_query}'
             c.execute(sql_query_create, (str(response_calendar['id']), ))
             conn.commit()
             c.close()
             conn.close()
             logger.log('CALENDAR', 'Request to create calendar in Google - successful')
-
-            # Включение общего доступа
-            acl_body = {
-                'role':         'reader',
-                'scope': {
-                    'type':     'default'
-                }
+        else:
+            logger.error('Request to create calendar in Google - failed')
+            delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
+            return False
+        # Включение общего доступа
+        acl_body = {
+            'role': 'reader',
+            'scope': {
+                'type': 'default'
             }
-            response_acl = service.acl().insert(calendarId=response_calendar['id'], body=acl_body).execute()
-            if response_acl['scope']['type'] == 'default' and response_acl['role'] == 'reader':
-                conn = connection_to_sql(calendar_db)
-                c = conn.cursor()
-                sql_query_acl = 'UPDATE calendars SET calendar_url = ?' + sql_query
-                shared_url = 'https://calendar.google.com/calendar/ical/' + str(response_calendar['id']).replace('@', '%40') + '/public/basic.ics'
-                c.execute(sql_query_acl, (shared_url, ))
-                conn.commit()
-                c.close()
-                conn.close()
-                logger.log('CALENDAR', 'Request to change calendar in Google to shared - successful')
+        }
+        response_acl = service.acl().insert(calendarId=response_calendar['id'], body=acl_body).execute()
+        # Проверка ответа на правильность
+        if response_acl['scope']['type'] == 'default' and response_acl['role'] == 'reader':
+            conn = connection_to_sql(calendar_db)
+            c = conn.cursor()
+            sql_query_acl = 'UPDATE calendars SET calendar_url = ?' + sql_query
+            shared_url = f"https://calendar.google.com/calendar/ical/{str(response_calendar['id']).replace('@', '%40')}'/public/basic.ics"
+            c.execute(sql_query_acl, (shared_url,))
+            conn.commit()
+            c.close()
+            conn.close()
+            logger.log('CALENDAR', 'Request to change calendar in Google to shared - successful')
+        else:
+            logger.error('Request to change calendar in Google to shared - failed')
+            delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
+            return False
+        # Заполнение календаря расписанием
+        result = import_timetable_to_calendar(teacher=teacher, group_id=group_id)
+        if result is False:
+            logger.error('Cant create calendar because import timetable to calendar is failed')
+            delete_calendar_in_google(teacher=teacher, group_id=group_id)
+            delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
     except KeyboardInterrupt:
         logger.log('CALENDAR', 'Calendar creation has been stopped by Ctrl+C')
-        c.close()
-        conn.close()
-        return 'EXIT'
-    except:
-        logger.error('Error happened while create calendar in Google')
-        c.close()
-        conn.close()
+        delete_calendar_in_google(teacher=teacher, group_id=group_id)
+        delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
+        return False
+    except gaierror or RemoteDisconnected:
+        logger.error('Internet was disconnected while create calendar. Wait 60 seconds...')
         time.sleep(60)
+    except ServerNotFoundError:
+        logger.error('Cant create calendar because internet is disconnected')
+        delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
+        return False
 
 
-
+# with logger.catch():
+    # create_shared_calendar(teacher='Синдеев С.А.')
+    # create_shared_calendar_and_add_timetable(group_id='316')
 
 
 def search_calendar_url_in_db(email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
@@ -286,13 +380,13 @@ def search_calendar_url_in_db(email: str = None, vk_id_chat: str = None, vk_id_u
 # Отправляет в ответ ссылка на календарь
 def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
     """
-    Пользователь запрашивает календарь
-    Смотрим, от какого сервиса пришел запрос
-    На основе ответа ищем, какие сохраненные преподаватели и группы есть у пользователя
-    Сравниваем данные у пользователя с сохраненными календарями
-    Если календарь уже сохранен в бд, то отправляем ссылку на календарь пользователю
-    Если календарь запрошен впервые, то создаем новый календарь, делаем его общим, сохраняем данные об календаре в бд
-    Заполняем новый календарь текущим расписанием и отправлем ссылку пользователю
+    Пользователь запрашивает календарь.
+    Смотрим, от какого сервиса пришел запрос.
+    На основе ответа ищем, какие сохраненные преподаватели и группы есть у пользователя.
+    Сравниваем данные у пользователя с сохраненными календарями.
+    Если календарь уже сохранен в бд, то отправляем ссылку на календарь пользователю.
+    Если календарь запрошен впервые, то создаем новый календарь, делаем его общим, сохраняем данные об календаре в бд.
+    Заполняем новый календарь текущим расписанием и отправляем ссылку пользователю.
     """
     # Обработка email
     if email is not None and (vk_id_chat is None and vk_id_user is None):

@@ -2,7 +2,8 @@ downloads/
 log/
 timetable-dbs/
 timetable-files/
-.idea
+.idea/
+venv/
 config.ini
 *.json
 *.pickle
