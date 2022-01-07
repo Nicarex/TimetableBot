@@ -25,10 +25,11 @@ def write_msg_user(message: str, user_id: str):
 
 # Создание пользовательской базы данных
 def create_db_user_settings():
-    if Path('user_settings.db').is_file():
+    path = 'user_settings.db'
+    if Path(path).is_file():
         return True
     # Таблица для почты
-    conn = connection_to_sql(name='user_settings.db')
+    conn = connection_to_sql(name=path)
     c = conn.cursor()
     c.execute("""CREATE TABLE IF NOT EXISTS email(
                 email           TEXT,
@@ -61,8 +62,28 @@ def create_db_user_settings():
     logger.log('SQL', 'User database has been created')
 
 
-# Создание базы данных пользователей, если её нет
+# Создание базы данных списка календарей
+def create_db_calendars_list():
+    path = 'calendars_list.db'
+    # Если файл существует, то True
+    if Path(path).is_file():
+        return True
+    conn = connection_to_sql(name=path)
+    c = conn.cursor()
+    c.execute("""CREATE TABLE IF NOT EXISTS calendars(
+                group_id        TEXT,
+                teacher         TEXT,
+                calendar_id     TEXT,
+                calendar_url    TEXT);
+                """)
+    conn.commit()  # Сохранение изменений
+    c.close()
+    conn.close()  # Закрытие подключения
+    logger.log('SQL', 'Calendar database has been created')
+
+
 create_db_user_settings()
+create_db_calendars_list()
 
 
 # Отправляет письмо на почту о том, что расписание изменилось

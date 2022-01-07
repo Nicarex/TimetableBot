@@ -4,6 +4,8 @@ timetable-dbs/
 timetable-files/
 .idea
 config.ini
+*.json
+*.pickle
 psevdocode
 *.csv
 *.dbf
