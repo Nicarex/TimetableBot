@@ -62,7 +62,7 @@ def create_db_user_settings():
     logger.log('SQL', 'User database has been created')
 
 
-# Создание базы данных списка календарей
+# Создание базы данных календарей
 def create_db_calendars_list():
     path = 'calendars_list.db'
     # Если файл существует, то True
@@ -75,6 +75,11 @@ def create_db_calendars_list():
                 teacher         TEXT,
                 calendar_id     TEXT,
                 calendar_url    TEXT);
+                """)
+    c.execute("""CREATE TABLE IF NOT EXISTS user_processing(
+                email           TEXT,
+                vk_id_chat      TEXT,
+                vk_id_user      TEXT);
                 """)
     conn.commit()  # Сохранение изменений
     c.close()
@@ -1329,11 +1334,15 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
                 logger.log('SQL', 'No saved groups or teachers for email <' + email + '>')
                 return 'Нет сохраненных групп или преподавателей для отправки расписания'
             if email_row['teacher'] is not None:
-                teachers = str(email_row['teacher']).split('\n')
+                teachers = str(email_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
                 for i in teachers:
                     teachers_answer += timetable(teacher=str(i), next=next, lesson_time=lesson_time) + '\n'
             if email_row['group_id'] is not None:
-                groups = str(email_row['group_id']).split('\n')
+                groups = str(email_row['group_id'])
+                groups = groups.replace('\r', '')
+                groups = groups.split('\n')
                 for i in groups:
                     groups_answer += timetable(group=str(i), next=next, lesson_time=lesson_time) + '\n'
             logger.log('SQL', 'Response to timetable request for email <' + email + '>')
@@ -1361,11 +1370,15 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
                 logger.log('SQL', 'No saved groups or teachers for vk chat <' + vk_id_chat + '>')
                 return 'Нет сохраненных групп или преподавателей для отправки расписания'
             if vk_chat_row['teacher'] is not None:
-                teachers = str(vk_chat_row['teacher']).split('\n')
+                teachers = str(vk_chat_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
                 for i in teachers:
                     teachers_answer += 'Cut\n' + timetable(teacher=str(i), next=next, lesson_time=lesson_time) + '\n'
             if vk_chat_row['group_id'] is not None:
-                groups = str(vk_chat_row['group_id']).split('\n')
+                groups = str(vk_chat_row['group_id'])
+                groups = groups.replace('\r', '')
+                groups = groups.split('\n')
                 for i in groups:
                     groups_answer += 'Cut\n' + timetable(group=str(i), next=next, lesson_time=lesson_time) + '\n'
             logger.log('SQL', 'Response to timetable request for vk chat <' + vk_id_chat + '>')
@@ -1393,11 +1406,15 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
                 logger.log('SQL', 'No saved groups or teachers for vk user <' + vk_id_user + '>')
                 return 'Нет сохраненных групп или преподавателей для отправки расписания'
             if vk_user_row['teacher'] is not None:
-                teachers = str(vk_user_row['teacher']).split('\n')
+                teachers = str(vk_user_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
                 for i in teachers:
                     teachers_answer += 'Cut\n' + timetable(teacher=str(i), next=next, lesson_time=lesson_time) + '\n'
             if vk_user_row['group_id'] is not None:
-                groups = str(vk_user_row['group_id']).split('\n')
+                groups = str(vk_user_row['group_id'])
+                groups = groups.replace('\r', '')
+                groups = groups.split('\n')
                 for i in groups:
                     groups_answer += 'Cut\n' + timetable(group=str(i), next=next, lesson_time=lesson_time) + '\n'
             logger.log('SQL', 'Response to timetable request for vk user <' + vk_id_user + '>')
