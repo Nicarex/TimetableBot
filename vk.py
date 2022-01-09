@@ -2,6 +2,7 @@ from logger import logger
 from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, KeyboardButtonColor, OpenLink
 from vkbottle.bot import Bot, Message
 from other import read_config
+from google_calendar import show_calendar_url_to_user
 from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time
 
 
@@ -22,6 +23,7 @@ KEYBOARD_USER_MAIN = (
 KEYBOARD_USER_SETTINGS = (
     Keyboard(one_time=False, inline=False)
     .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .add(Text('Календарь'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
     .row()
@@ -30,8 +32,17 @@ KEYBOARD_USER_SETTINGS = (
     .add(Text('Удалить параметры групп и преподавателей'), color=KeyboardButtonColor.NEGATIVE)
     .row()
     .add(Text('Об авторе'), color=KeyboardButtonColor.SECONDARY)
-    .row()
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.POSITIVE)
+    .get_json()
+)
+
+KEYBOARD_USER_CALENDAR = (
+    Keyboard(one_time=False, inline=False)
+    .add(Text('Да, я прочитал инструкцию'), color=KeyboardButtonColor.PRIMARY)
+    .row()
+    .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .row()
+    .add(Text('Вернуться назад'), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
 )
 
@@ -44,7 +55,6 @@ KEYBOARD_USER_NOTI = (
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.POSITIVE)
     .get_json()
 )
-
 
 KEYBOARD_USER_LESSON_TIME = (
     Keyboard(one_time=False, inline=False)
@@ -70,6 +80,7 @@ KEYBOARD_CHAT_MAIN = (
 KEYBOARD_CHAT_SETTINGS = (
     Keyboard(one_time=False, inline=True)
     .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .add(Text('Календарь'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
     .row()
@@ -78,8 +89,17 @@ KEYBOARD_CHAT_SETTINGS = (
     .add(Text('Удалить параметры групп и преподавателей'), color=KeyboardButtonColor.NEGATIVE)
     .row()
     .add(Text('Об авторе'), color=KeyboardButtonColor.SECONDARY)
-    .row()
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.POSITIVE)
+    .get_json()
+)
+
+KEYBOARD_CHAT_CALENDAR = (
+    Keyboard(one_time=False, inline=True)
+    .add(Text('Да, я знаю, что делаю'), color=KeyboardButtonColor.PRIMARY)
+    .row()
+    .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .row()
+    .add(Text('Вернуться назад'), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
 )
 
@@ -92,7 +112,6 @@ KEYBOARD_CHAT_NOTI = (
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.POSITIVE)
     .get_json()
 )
-
 
 KEYBOARD_CHAT_LESSON_TIME = (
     Keyboard(one_time=False, inline=True)
@@ -135,6 +154,7 @@ async def user_timetable_next(message: Message):
 @bot.on.private_message(text="Начать")
 async def user_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    # noinspection PyTypeChecker
     users_info = await bot.api.users.get(message.from_id)
     await message.answer("Привет, {}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://vk.link/bot_agz\n\nАхтунг! Бот находится в стадии бета-тестирования".format(users_info[0].first_name), keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
@@ -145,6 +165,22 @@ async def user_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     answer = display_saved_settings(vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
+    logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
+
+
+@bot.on.private_message(text="Календарь")
+async def user_calendar_settings(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.\n\nЗапрос может выполняться несколько минут - это нормально, программа не зависла.', keyboard=KEYBOARD_USER_CALENDAR)
+    logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
+
+
+@bot.on.private_message(text="Да, я прочитал инструкцию")
+async def user_calendar_response(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    await message.answer('Ваш запрос выполняется, пожалуйста, подождите...', keyboard=KEYBOARD_USER_MAIN)
+    answer = show_calendar_url_to_user(vk_id_user=str(message.from_id))
+    await message.answer(answer, keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -274,6 +310,22 @@ async def chat_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = display_saved_settings(vk_id_chat=str(message.chat_id))
     await message.answer(message=answer, keyboard=KEYBOARD_CHAT_SETTINGS)
+    logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
+
+
+@bot.on.chat_message(text="Календарь")
+async def chat_calendar_settings(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
+    await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.\n\nЗапрос может выполняться несколько минут - это нормально, программа не зависла.', keyboard=KEYBOARD_CHAT_CALENDAR)
+    logger.log('VK', 'Response to message from vk user: "' + str(message.chat_id) + '"')
+
+
+@bot.on.chat_message(text="Да, я знаю, что делаю")
+async def chat_calendar_response(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
+    await message.answer('Запрос выполняется, пожалуйста, подождите...', keyboard=KEYBOARD_CHAT_MAIN)
+    answer = await show_calendar_url_to_user(vk_id_chat=str(message.chat_id))
+    await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 

@@ -309,7 +309,6 @@ def timetable(group: str = None, teacher: str = None, next: str = None, lesson_t
 
 
 # with logger.catch():
-    # print(timetable(group='306', next='YES', lesson_time='NO'))
-    # print(timetable(group='306', next=None, lesson_time='NO'))
-    # print(timetable(teacher='Горячева Н.Г.', next=None, lesson_time='NO'))
-
+    # print(timetable(group='', next='YES', lesson_time='NO'))
+    # print(timetable(group='', next=None, lesson_time='NO'))
+    # print(timetable(teacher='', next=None, lesson_time='NO'))

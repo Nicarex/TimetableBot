@@ -2,10 +2,12 @@ from logger import logger
 from other import connection_to_sql, get_latest_file
 from sqlite3 import Row
 import time
+import random
 
 from socket import gaierror
 from http.client import RemoteDisconnected
 from httplib2.error import ServerNotFoundError
+from googleapiclient.errors import HttpError
 
 from gcsa.google_calendar import GoogleCalendar
 from gcsa.event import Event
@@ -204,6 +206,13 @@ def import_timetable_to_calendar(teacher: str = None, group_id: str = None):
         except ServerNotFoundError:
             logger.error('Cant import timetable to calendar because internet is disconnected')
             return False
+        except HttpError as err:
+            if err.status_code == 403 or err.status_code == 429:
+                wait_seconds_to_retry = random.randint(1, 10)
+                time.sleep(wait_seconds_to_retry)
+                logger.log('CALENDAR', f'Too many requests to Google in one minute - Rate Limit Exceeded, wait <{str(wait_seconds_to_retry)}> seconds to retry')
+            else:
+                raise
     logger.log('CALENDAR', f'Import timetable to calendar = <{str(calendar_row["calendar_id"])}> has been finished')
 
 
@@ -388,9 +397,17 @@ def create_shared_calendar_and_add_timetable(teacher: str = None, group_id: str 
         logger.error('Cant create calendar because internet is disconnected')
         delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
         return False
+    except HttpError as err:
+        if err.status_code == 403 or err.status_code == 429:
+            wait_seconds_to_retry = random.randint(1, 10)
+            time.sleep(wait_seconds_to_retry)
+            logger.log('CALENDAR',
+                       f'Too many requests to Google in one minute - Rate Limit Exceeded, wait <{str(wait_seconds_to_retry)}> seconds to retry')
+        else:
+            raise
 
 
-# Отправляет в ответ ссылка на календарь
+# Отправляет в ответ ссылку на календарь
 def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
     """
     Пользователь запрашивает календарь.
@@ -726,9 +743,9 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                     if calendar_row:
                         if calendar_row['calendar_id'] is not None and calendar_row['calendar_url'] is not None:
                             if answer == '':
-                                answer += f'Преподаватель {str(calendar_row["teacher"])}: {str(calendar_row["calendar_url"])}'
+                                answer += f'Преподаватель {str(calendar_row["teacher"])}: "{str(calendar_row["calendar_url"])}"'
                             elif answer != '':
-                                answer += f'\nПреподаватель {str(calendar_row["teacher"])}: {str(calendar_row["calendar_url"])}'
+                                answer += f'\nПреподаватель {str(calendar_row["teacher"])}: "{str(calendar_row["calendar_url"])}"'
                     else:
                         result = create_shared_calendar_and_add_timetable(teacher=teacher)
                         if result is not False:
@@ -736,9 +753,9 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                             if calendar_row:
                                 if calendar_row['calendar_id'] is not None and calendar_row['calendar_url'] is not None:
                                     if answer == '':
-                                        answer += f'Преподаватель {str(calendar_row["teacher"])}: {str(calendar_row["calendar_url"])}'
+                                        answer += f'Преподаватель {str(calendar_row["teacher"])}: "{str(calendar_row["calendar_url"])}"'
                                     elif answer != '':
-                                        answer += f'\nПреподаватель {str(calendar_row["teacher"])}: {str(calendar_row["calendar_url"])}'
+                                        answer += f'\nПреподаватель {str(calendar_row["teacher"])}: "{str(calendar_row["calendar_url"])}"'
                             else:
                                 logger.error(
                                     'Cant show calendar url because calendar url not exists after successful creation')
@@ -759,9 +776,9 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                     if calendar_row:
                         if calendar_row['calendar_id'] is not None and calendar_row['calendar_url'] is not None:
                             if answer == '':
-                                answer += f'Группа {str(calendar_row["group_id"])}: {str(calendar_row["calendar_url"])}'
+                                answer += f'Группа {str(calendar_row["group_id"])}: "{str(calendar_row["calendar_url"])}"'
                             elif answer != '':
-                                answer += f'\nГруппа {str(calendar_row["group_id"])}: {str(calendar_row["calendar_url"])}'
+                                answer += f'\nГруппа {str(calendar_row["group_id"])}: "{str(calendar_row["calendar_url"])}"'
                     else:
                         result = create_shared_calendar_and_add_timetable(group_id=group)
                         if result is not False:
@@ -769,9 +786,9 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                             if calendar_row:
                                 if calendar_row['calendar_id'] is not None and calendar_row['calendar_url'] is not None:
                                     if answer == '':
-                                        answer += f'Группа {str(calendar_row["group_id"])}: {str(calendar_row["calendar_url"])}'
+                                        answer += f'Группа {str(calendar_row["group_id"])}: "{str(calendar_row["calendar_url"])}"'
                                     elif answer != '':
-                                        answer += f'\nГруппа {str(calendar_row["group_id"])}: {str(calendar_row["calendar_url"])}'
+                                        answer += f'\nГруппа {str(calendar_row["group_id"])}: "{str(calendar_row["calendar_url"])}"'
                             else:
                                 logger.error(
                                     'Cant show calendar url because calendar url not exists after successful creation')
@@ -788,7 +805,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
             c.close()
             conn.close()
             if answer != '':
-                answer += '\n\nНа всякий случай, напоминаю, что копировать нужно только ссылку, которая находится после двоеточия. Копировать ФИО преподавателя или номер группы не следует.\nПодробнее о настройке календаря можно прочитать в инструкции'
+                answer += '\n\nНа всякий случай, напоминаю, что копировать нужно только ссылку (она находится после двоеточия в кавычках). Копировать кавычки, ФИО преподавателя или номер группы не следует.\nПодробнее о настройке календаря можно прочитать в инструкции'
                 delete_user_from_processing(vk_id_user=vk_id_user)
                 return answer
             elif answer == '':

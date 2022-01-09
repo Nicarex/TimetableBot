@@ -7,6 +7,7 @@ from imap_tools import MailBox, A
 from glob import glob
 from pathlib import Path
 from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user
+from google_calendar import show_calendar_url_to_user
 
 
 # Чтение почты и выполнение действий
@@ -67,7 +68,6 @@ def processingMail():
                         answer += search_response
                     # Сообщение в нижний регистр для проверки слов
                     text = text.lower()
-                    # Проверка на уведомления
                     if text.find('включить уведомления') != -1:
                         answer += str(enable_and_disable_notifications(enable='YES', email=msg.from_))
                     elif text.find('выключить уведомления') != -1:
@@ -76,6 +76,8 @@ def processingMail():
                         answer += str(enable_and_disable_lesson_time(enable='YES', email=msg.from_))
                     elif text.find('выключить отображение времени занятий') != -1:
                         answer += str(enable_and_disable_lesson_time(disable='YES', email=msg.from_))
+                    if text.find('календарь') != -1:
+                        answer += str(show_calendar_url_to_user(email=msg.from_))
                     if text.find('сбросить параметры отправки') != -1:
                         answer += str(delete_all_saved_groups_and_teachers(email=msg.from_))
                 sendMail(to_email=msg.from_, subject=msg.subject, text=answer)

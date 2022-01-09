@@ -1,4 +1,5 @@
 from other import read_config, get_latest_file, connection_to_sql, sendMail
+from google_calendar import delete_all_events_in_calendar, import_timetable_to_calendar
 import sqlite3
 from logger import logger
 from glob import iglob
@@ -188,6 +189,7 @@ def send_notifications_vk_chat(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_chat:
             sent_vk_chat += [i['vk_id']]
             answer = str(getting_timetable_for_user(vk_id_chat=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
             write_msg_chat(message='Новое расписание на текущую неделю', chat_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -196,6 +198,7 @@ def send_notifications_vk_chat(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_chat:
             sent_vk_chat += [i['vk_id']]
             answer = str(getting_timetable_for_user(vk_id_chat=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
             write_msg_chat(message='Новое расписание на текущую неделю', chat_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -204,6 +207,7 @@ def send_notifications_vk_chat(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_chat_next:
             sent_vk_chat_next += [i['vk_id']]
             answer = str(getting_timetable_for_user(next='YES', vk_id_chat=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
             write_msg_chat(message='Новое расписание на следующую неделю', chat_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -212,6 +216,7 @@ def send_notifications_vk_chat(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_chat_next:
             sent_vk_chat_next += [i['vk_id']]
             answer = str(getting_timetable_for_user(next='YES', vk_id_chat=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
             write_msg_chat(message='Новое расписание на следующую неделю', chat_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -259,6 +264,7 @@ def send_notifications_vk_user(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_user:
             sent_vk_user += [i['vk_id']]
             answer = str(getting_timetable_for_user(vk_id_user=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
             write_msg_user(message='Расписание на текущую неделю было изменено', user_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -267,6 +273,7 @@ def send_notifications_vk_user(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_user:
             sent_vk_user += [i['vk_id']]
             answer = str(getting_timetable_for_user(vk_id_user=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
             write_msg_user(message='Расписание на текущую неделю было изменено', user_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -275,6 +282,7 @@ def send_notifications_vk_user(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_user_next:
             sent_vk_user_next += [i['vk_id']]
             answer = str(getting_timetable_for_user(next='YES', vk_id_user=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
             write_msg_user(message='Расписание на следующую неделю было изменено', user_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -283,6 +291,7 @@ def send_notifications_vk_user(list_now: list, list_next: list):
         if not i['vk_id'] in sent_vk_user_next:
             sent_vk_user_next += [i['vk_id']]
             answer = str(getting_timetable_for_user(next='YES', vk_id_user=i['vk_id'])).split('Cut\n')
+            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
             write_msg_user(message='Расписание на следующую неделю было изменено', user_id=i['vk_id'])
             for j in answer:
                 if j != '':
@@ -321,7 +330,27 @@ def getting_the_difference_in_sql_files_and_sending_them():
     if not difference:
         logger.log('SQL', 'No differences in timetables')
         return False
-    # Запись разницы в списки
+    # Календарь
+    # Обновление расписания в календарях
+    list_with_teachers = []
+    list_with_groups = []
+    for row in difference:
+        if not str(row['Name']) in list_with_teachers:
+            list_with_teachers += str(row['Name'])
+            if delete_all_events_in_calendar(teacher=str(row['Name'])) is not False:
+                if import_timetable_to_calendar(teacher=str(row['Name'])) is False:
+                    logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
+                else:
+                    logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
+        if not str(row['Group']) in list_with_groups:
+            list_with_groups += str(row['Group'])
+            if delete_all_events_in_calendar(group_id=str(row['Group'])) is not False:
+                if import_timetable_to_calendar(group_id=str(row['Group'])) is False:
+                    logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group"])}')
+                else:
+                    logger.log('SQL', f'Calendar for group = "{str(row["Group"])}" has been successfully updated')
+    # ВК и почта
+    # Запись разницы в списки для отправки в ВК и почту
     list_with_send_request = []
     list_with_send_request_next = []
     for row in difference:
@@ -1429,4 +1458,3 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
 
 # with logger.catch():
 #     print(enable_and_disable_notifications(enable='YES', email='2'))
-
