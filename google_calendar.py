@@ -433,7 +433,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
             # Проверка на сохраненные параметры для пользователя
             if email_row['teacher'] is None and email_row['group_id'] is None:
                 logger.log('CALENDAR', f"Cant show calendar because no saved teachers and groups for email = <{str(email)}>")
-                return 'Невозможно отобразить календарь, так как для вас нет сохраненных преподавателей или групп'
+                return '\nНевозможно отобразить календарь, так как для вас нет сохраненных преподавателей или групп'
             teachers_list = []
             groups_list = []
             if email_row['teacher'] is not None:
@@ -454,7 +454,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                 logger.log('CALENDAR', f'The request is already being processed at now for email = <{str(email)}>')
                 c.close()
                 conn.close()
-                return 'Ваш запрос уже обрабатывается, пожалуйста, подождите...'
+                return '\nВаш запрос уже обрабатывается, пожалуйста, подождите...'
             # Если запрос сейчас не обрабатывается
             else:
                 c.execute('INSERT INTO user_processing (email) VALUES (?)', (email,))
@@ -497,13 +497,13 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                                 c.close()
                                 conn.close()
                                 delete_user_from_processing(email=email)
-                                return 'При выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
+                                return '\nПри выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
                         else:
                             logger.error('Cant show calendar url because error happened while create calendar')
                             c.close()
                             conn.close()
                             delete_user_from_processing(email=email)
-                            return 'При выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
+                            return '\nПри выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
             if groups_list:
                 for group in groups_list:
                     calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (group,)).fetchone()
@@ -529,26 +529,26 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                                 c.close()
                                 conn.close()
                                 delete_user_from_processing(email=email)
-                                return 'При выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
+                                return '\nПри выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
                         else:
                             logger.error('Cant show calendar url because error happened while create calendar')
                             c.close()
                             conn.close()
                             delete_user_from_processing(email=email)
-                            return 'При выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
+                            return '\nПри выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
             c.close()
             conn.close()
             if answer != '':
-                answer += '\n\nНа всякий случай, напоминаю, что копировать нужно только ссылку, которая находится после двоеточия. Копировать ФИО преподавателя или номер группы не следует.\nПодробнее о настройке календаря можно прочитать в инструкции'
+                answer = '\n\n' + answer + '\n\nНа всякий случай, напоминаю, что копировать нужно только ссылку, которая находится после двоеточия. Копировать ФИО преподавателя или номер группы не следует.\nПодробнее о настройке календаря можно прочитать в инструкции'
                 delete_user_from_processing(email=email)
                 return answer
             elif answer == '':
                 logger.error('Cant show calendar url because answer is empty')
                 delete_user_from_processing(email=email)
-                return 'При выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
+                return '\nПри выполнении вашего запроса произошла ошибка, пожалуйста, попробуйте позже'
         else:
             logger.log('CALENDAR', f'No saved settings for email <{str(email)}>. Skip')
-            return 'Для вас нет сохраненных параметров. Добавьте сначала преподавателя или группу.'
+            return '\nДля вас нет сохраненных параметров. Добавьте сначала преподавателя или группу.'
     # Обработка vk chat
     elif vk_id_chat is not None and (email is None and vk_id_user is None):
         logger.log('CALENDAR', f'Request to show calendar urls for vk chat = <{str(vk_id_chat)}>')
