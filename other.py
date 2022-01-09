@@ -45,7 +45,7 @@ def sendMail(to_email, subject, text):
     user_info = read_config(email='YES')
     yag = yagmail.SMTP(user=user_info[1], password=user_info[2])
     # Подпись, которая добавляется в конец каждого отправленного сообщения
-    signature = '\n\n\nСайт-инструкция: https://vk.link/bot_agz'
+    signature = '\n\n\nСайт-инструкция: https://nicarex.github.io/timetablebot-site/'
     # Непосредственно отправка письма
     yag.send(to=to_email, subject=subject, contents=text + signature)
     logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')

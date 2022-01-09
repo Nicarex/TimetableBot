@@ -22,7 +22,7 @@ KEYBOARD_USER_MAIN = (
 
 KEYBOARD_USER_SETTINGS = (
     Keyboard(one_time=False, inline=False)
-    .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
     .add(Text('Календарь'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
@@ -40,7 +40,7 @@ KEYBOARD_USER_CALENDAR = (
     Keyboard(one_time=False, inline=False)
     .add(Text('Да, я прочитал инструкцию'), color=KeyboardButtonColor.PRIMARY)
     .row()
-    .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
     .row()
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
@@ -79,7 +79,7 @@ KEYBOARD_CHAT_MAIN = (
 
 KEYBOARD_CHAT_SETTINGS = (
     Keyboard(one_time=False, inline=True)
-    .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
     .add(Text('Календарь'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
@@ -97,7 +97,7 @@ KEYBOARD_CHAT_CALENDAR = (
     Keyboard(one_time=False, inline=True)
     .add(Text('Да, я знаю, что делаю'), color=KeyboardButtonColor.PRIMARY)
     .row()
-    .add(OpenLink(label='Инструкция', link='https://vk.link/bot_agz'))
+    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
     .row()
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
@@ -156,7 +156,7 @@ async def user_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     # noinspection PyTypeChecker
     users_info = await bot.api.users.get(message.from_id)
-    await message.answer("Привет, {}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://vk.link/bot_agz\n\nАхтунг! Бот находится в стадии бета-тестирования".format(users_info[0].first_name), keyboard=KEYBOARD_USER_MAIN)
+    await message.answer("Привет, {}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/\n\nАхтунг! Бот находится в стадии бета-тестирования".format(users_info[0].first_name), keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -255,7 +255,7 @@ async def user_about_author(message: Message):
 @bot.on.private_message(text="Инструкция")
 async def user_instruction_link(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    await message.answer('https://vk.link/bot_agz', keyboard=KEYBOARD_USER_SETTINGS)
+    await message.answer('https://nicarex.github.io/timetablebot-site/', keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -301,7 +301,7 @@ async def chat_timetable_next(message: Message):
 @bot.on.chat_message(text="Начать")
 async def chat_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer("Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://vk.link/bot_agz\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_CHAT_MAIN)
+    await message.answer("Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
@@ -429,5 +429,12 @@ async def group_join_handler(event: GroupTypes.GroupJoin):
         pass
 
 
-logger.log('VK', 'VK server started...')
-bot.run_forever()
+# Запуск сервера
+@logger.catch
+def start_vk_server():
+    logger.log('VK', 'VK server started...')
+    try:
+        bot.run_forever()
+    except KeyboardInterrupt:
+        logger.log('VK', 'VK server has been stopped by Ctrl+C')
+        return True

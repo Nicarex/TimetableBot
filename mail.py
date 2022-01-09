@@ -11,6 +11,7 @@ from google_calendar import show_calendar_url_to_user
 
 
 # Чтение почты и выполнение действий
+@logger.catch
 def processingMail():
     logger.log('MAIL', 'Email server started...')
     login_info = read_config(email='YES')
@@ -104,7 +105,7 @@ def processingMail():
             # logger.debug('End work')
             time.sleep(10)
         except KeyboardInterrupt:
-            logger.warning('Email server has been stopped by Ctrl+C')
+            logger.log('MAIL', 'Email server has been stopped by Ctrl+C')
             return 'EXIT'
         # Подключение к интернету
         except gaierror:
@@ -112,8 +113,3 @@ def processingMail():
             # Ждем 2 минуты появления интернета
             time.sleep(120)
             continue
-
-
-with logger.catch():
-    processingMail()
-
