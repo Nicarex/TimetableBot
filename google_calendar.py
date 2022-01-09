@@ -56,7 +56,26 @@ def delete_all_events_in_calendar(teacher: str = None, group_id: str = None):
         conn.close()
         if calendar_row:
             calendar = GoogleCalendar(calendar=str(calendar_row['calendar_id']), credentials_path='calendar-config.json', token_path='calendar-token.pickle')
-            calendar.clear()
+            try:
+                calendar.clear()
+            except KeyboardInterrupt:
+                logger.log('CALENDAR', f'Import timetable to calendar has been stopped by Ctrl+C')
+                # Удаление всех записей из календаря
+                calendar.clear()
+                return False
+            except gaierror or RemoteDisconnected:
+                logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
+                time.sleep(60)
+            except error.ServerNotFoundError:
+                logger.error('Cant import timetable to calendar because internet is disconnected')
+                return False
+            except errors.HttpError as err:
+                if err.status_code == 403 or err.status_code == 429:
+                    wait_seconds_to_retry = random.randint(1, 10)
+                    time.sleep(wait_seconds_to_retry)
+                    logger.log('CALENDAR', f'Too many requests to Google in one minute - Rate Limit Exceeded, wait <{str(wait_seconds_to_retry)}> seconds to retry')
+                else:
+                    raise
             logger.log('CALENDAR', f'Calendar for teacher = {str(teacher)} has been cleared')
         else:
             logger.log('CALENDAR', f'Calendar doesnt exist for teacher = {str(teacher)}')
@@ -71,7 +90,26 @@ def delete_all_events_in_calendar(teacher: str = None, group_id: str = None):
         conn.close()
         if calendar_row:
             calendar = GoogleCalendar(calendar=str(calendar_row['calendar_id']), credentials_path='calendar-config.json', token_path='calendar-token.pickle')
-            calendar.clear()
+            try:
+                calendar.clear()
+            except KeyboardInterrupt:
+                logger.log('CALENDAR', f'Import timetable to calendar has been stopped by Ctrl+C')
+                # Удаление всех записей из календаря
+                calendar.clear()
+                return False
+            except gaierror or RemoteDisconnected:
+                logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
+                time.sleep(60)
+            except error.ServerNotFoundError:
+                logger.error('Cant import timetable to calendar because internet is disconnected')
+                return False
+            except errors.HttpError as err:
+                if err.status_code == 403 or err.status_code == 429:
+                    wait_seconds_to_retry = random.randint(1, 10)
+                    time.sleep(wait_seconds_to_retry)
+                    logger.log('CALENDAR', f'Too many requests to Google in one minute - Rate Limit Exceeded, wait <{str(wait_seconds_to_retry)}> seconds to retry')
+                else:
+                    raise
             logger.log('CALENDAR', f'Calendar for group = {str(group_id)} has been cleared')
         else:
             logger.log('CALENDAR', f'Calendar doesnt exist for group = {str(group_id)}')
