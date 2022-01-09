@@ -323,8 +323,8 @@ async def chat_calendar_settings(message: Message):
 @bot.on.chat_message(text="Да, я знаю, что делаю")
 async def chat_calendar_response(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer('Запрос выполняется, пожалуйста, подождите...', keyboard=KEYBOARD_CHAT_MAIN)
-    answer = await show_calendar_url_to_user(vk_id_chat=str(message.chat_id))
+    await message.answer('Запрос выполняется, пожалуйста, подождите...')
+    answer = show_calendar_url_to_user(vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 

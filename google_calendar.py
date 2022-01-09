@@ -6,8 +6,8 @@ import random
 
 from socket import gaierror
 from http.client import RemoteDisconnected
-from httplib2.error import ServerNotFoundError
-from googleapiclient.errors import HttpError
+from httplib2 import error
+from googleapiclient import errors
 
 from gcsa.google_calendar import GoogleCalendar
 from gcsa.event import Event
@@ -203,10 +203,10 @@ def import_timetable_to_calendar(teacher: str = None, group_id: str = None):
         except gaierror or RemoteDisconnected:
             logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
             time.sleep(60)
-        except ServerNotFoundError:
+        except error.ServerNotFoundError:
             logger.error('Cant import timetable to calendar because internet is disconnected')
             return False
-        except HttpError as err:
+        except errors.HttpError as err:
             if err.status_code == 403 or err.status_code == 429:
                 wait_seconds_to_retry = random.randint(1, 10)
                 time.sleep(wait_seconds_to_retry)
@@ -393,11 +393,11 @@ def create_shared_calendar_and_add_timetable(teacher: str = None, group_id: str 
     except gaierror or RemoteDisconnected:
         logger.error('Internet was disconnected while create calendar. Wait 60 seconds...')
         time.sleep(60)
-    except ServerNotFoundError:
+    except error.ServerNotFoundError:
         logger.error('Cant create calendar because internet is disconnected')
         delete_row_in_calendar_db(teacher=teacher, group_id=group_id)
         return False
-    except HttpError as err:
+    except errors.HttpError as err:
         if err.status_code == 403 or err.status_code == 429:
             wait_seconds_to_retry = random.randint(1, 10)
             time.sleep(wait_seconds_to_retry)
