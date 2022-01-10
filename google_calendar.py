@@ -57,11 +57,19 @@ def delete_all_events_in_calendar(teacher: str = None, group_id: str = None):
         if calendar_row:
             calendar = GoogleCalendar(calendar=str(calendar_row['calendar_id']), credentials_path='calendar-config.json', token_path='calendar-token.pickle')
             try:
-                calendar.clear()
+                list_of_events = calendar.get_events(
+                    time_min=pendulum.from_format(string=f"2020", fmt='YYYY', tz='Europe/Moscow'),
+                    time_max=pendulum.from_format(string=f"2030", fmt='YYYY', tz='Europe/Moscow'))
+                for event in list_of_events:
+                    calendar.delete_event(event)
             except KeyboardInterrupt:
                 logger.log('CALENDAR', f'Import timetable to calendar has been stopped by Ctrl+C')
                 # Удаление всех записей из календаря
-                calendar.clear()
+                list_of_events = calendar.get_events(
+                    time_min=pendulum.from_format(string=f"2020", fmt='YYYY', tz='Europe/Moscow'),
+                    time_max=pendulum.from_format(string=f"2030", fmt='YYYY', tz='Europe/Moscow'))
+                for event in list_of_events:
+                    calendar.delete_event(event)
                 return False
             except gaierror or RemoteDisconnected:
                 logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
@@ -91,11 +99,19 @@ def delete_all_events_in_calendar(teacher: str = None, group_id: str = None):
         if calendar_row:
             calendar = GoogleCalendar(calendar=str(calendar_row['calendar_id']), credentials_path='calendar-config.json', token_path='calendar-token.pickle')
             try:
-                calendar.clear()
+                list_of_events = calendar.get_events(
+                    time_min=pendulum.from_format(string=f"2020", fmt='YYYY', tz='Europe/Moscow'),
+                    time_max=pendulum.from_format(string=f"2030", fmt='YYYY', tz='Europe/Moscow'))
+                for event in list_of_events:
+                    calendar.delete_event(event)
             except KeyboardInterrupt:
                 logger.log('CALENDAR', f'Import timetable to calendar has been stopped by Ctrl+C')
                 # Удаление всех записей из календаря
-                calendar.clear()
+                list_of_events = calendar.get_events(
+                    time_min=pendulum.from_format(string=f"2020", fmt='YYYY', tz='Europe/Moscow'),
+                    time_max=pendulum.from_format(string=f"2030", fmt='YYYY', tz='Europe/Moscow'))
+                for event in list_of_events:
+                    calendar.delete_event(event)
                 return False
             except gaierror or RemoteDisconnected:
                 logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
@@ -236,7 +252,11 @@ def import_timetable_to_calendar(teacher: str = None, group_id: str = None):
         except KeyboardInterrupt:
             logger.log('CALENDAR', f'Import timetable to calendar has been stopped by Ctrl+C')
             # Удаление всех записей из календаря
-            calendar.clear()
+            list_of_events = calendar.get_events(
+                time_min=pendulum.from_format(string=f"2020", fmt='YYYY', tz='Europe/Moscow'),
+                time_max=pendulum.from_format(string=f"2030", fmt='YYYY', tz='Europe/Moscow'))
+            for event in list_of_events:
+                calendar.delete_event(event)
             return False
         except gaierror or RemoteDisconnected:
             logger.error('Internet was disconnected while import timetable to calendar. Wait 60 seconds...')
@@ -859,4 +879,4 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
 
 
 # with logger.catch():
-#     print(show_calendar_url_to_user(vk_id_user='TEST'))
+#     delete_all_events_in_calendar(teacher='Яшкова А.С.')
