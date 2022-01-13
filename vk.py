@@ -1,3 +1,6 @@
+import aiohttp.client_exceptions
+import random
+import time
 from logger import logger
 from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, KeyboardButtonColor, OpenLink
 from vkbottle.bot import Bot, Message
@@ -413,7 +416,7 @@ async def chat_search_in_request(message: Message, groups_and_teachers: str):
 
 @bot.on.chat_message()
 async def ping(message: Message):
-    if str(message.text).find('@all') != -1:
+    if str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1:
         return False
     answer = 'Выберите параметры'
     await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)
@@ -437,4 +440,9 @@ def start_vk_server():
         bot.run_forever()
     except KeyboardInterrupt:
         logger.log('VK', 'VK server has been stopped by Ctrl+C')
-        return True
+        return False
+    except aiohttp.client_exceptions.ServerDisconnectedError:
+        logger.log('VK', 'VK server has been disconnected. Continue...')
+        wait_seconds_to_retry = random.randint(1, 10)
+        logger.log('VK', f'VK server has been disconnected, wait <{str(wait_seconds_to_retry)}> seconds to retry')
+        time.sleep(wait_seconds_to_retry)
