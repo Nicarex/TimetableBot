@@ -1,3 +1,4 @@
+import imaplib
 from socket import gaierror
 from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail
 import os
@@ -113,3 +114,11 @@ def processingMail():
             # Ждем 2 минуты появления интернета
             time.sleep(120)
             continue
+        except imaplib.IMAP4.abort:
+            logger.log('MAIL', 'Imaplib error. Continue...')
+            # Ждем 2 минуты появления интернета
+            time.sleep(120)
+        except imaplib.IMAP4.error:
+            logger.log('MAIL', 'Imaplib error. Continue...')
+            # Ждем 2 минуты появления интернета
+            time.sleep(120)
