@@ -10,19 +10,22 @@ import configparser
 import yagmail
 
 
-def read_config(email: str = None, vk: str = None):
+def read_config(email: str = None, vk: str = None, github: str = None):
     # Загрузка данных из конфига
     config = configparser.ConfigParser()
     try:
         config.read("config.ini")
         if email is not None:
             imap_server = str(config['MAIL']['imap_server'])
-            username = str(config['MAIL']['username'])
-            password = str(config['MAIL']['password'])
+            username = str(config['TEST']['username'])
+            password = str(config['TEST']['password'])
             return imap_server, username, password
         elif vk is not None:
-            group_token = str(config['VK']['group_token'])
+            group_token = str(config['TEST']['group_token'])
             return group_token
+        elif github is not None:
+            github_token = str(config['GITHUB']['token'])
+            return github_token
     except KeyError:
         logger.critical('Error when try to read config data. Maybe file not exist or fields are wrong')
 
@@ -37,6 +40,8 @@ def create_required_dirs():
         os.makedirs('downloads', exist_ok=True)
     if not os.path.isdir('log'):
         os.makedirs('log', exist_ok=True)
+    if not os.path.isdir('calendars'):
+        os.makedirs('downloads', exist_ok=True)
 
 
 # Отправка почты через yagmail

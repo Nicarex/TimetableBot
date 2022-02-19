@@ -8,7 +8,7 @@ from imap_tools import MailBox, A
 from glob import glob
 from pathlib import Path
 from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user
-from google_calendar import show_calendar_url_to_user
+from calendar_timetable import show_calendar_url_to_user
 
 
 # Чтение почты и выполнение действий
@@ -119,6 +119,10 @@ def processingMail():
             # Ждем 2 минуты появления интернета
             time.sleep(120)
         except imaplib.IMAP4.error:
+            logger.log('MAIL', 'Imaplib error. Continue...')
+            # Ждем 2 минуты появления интернета
+            time.sleep(120)
+        except OSError:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
             time.sleep(120)

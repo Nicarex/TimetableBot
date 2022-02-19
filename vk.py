@@ -1,3 +1,4 @@
+import asyncio.exceptions
 import aiohttp.client_exceptions
 import random
 import time
@@ -5,7 +6,7 @@ from logger import logger
 from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, KeyboardButtonColor, OpenLink
 from vkbottle.bot import Bot, Message
 from other import read_config
-from google_calendar import show_calendar_url_to_user
+from calendar_timetable import show_calendar_url_to_user
 from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time
 
 
@@ -442,7 +443,10 @@ def start_vk_server():
         logger.log('VK', 'VK server has been stopped by Ctrl+C')
         return False
     except aiohttp.client_exceptions.ServerDisconnectedError:
-        logger.log('VK', 'VK server has been disconnected. Continue...')
         wait_seconds_to_retry = random.randint(1, 10)
         logger.log('VK', f'VK server has been disconnected, wait <{str(wait_seconds_to_retry)}> seconds to retry')
+        time.sleep(wait_seconds_to_retry)
+    except asyncio.exceptions.TimeoutError:
+        wait_seconds_to_retry = random.randint(1, 10)
+        logger.log('VK', f'VK server timeout, wait <{str(wait_seconds_to_retry)}> seconds to retry')
         time.sleep(wait_seconds_to_retry)

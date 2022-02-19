@@ -81,7 +81,7 @@ def timetable(group_id: str = None, teacher: str = None, next: str = None, lesso
                 if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
                     timetable_string = f.read()
                     logger.log('TIMETABLE', f'Read timetable from file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
-                return timetable_string
+                    return timetable_string
         # Если готового расписания нет, пишем новое
         timetable_string = f'Преподаватель {str(teacher)}'
         conn = connection_to_sql(db_timetable)
@@ -166,7 +166,7 @@ def timetable(group_id: str = None, teacher: str = None, next: str = None, lesso
                     timetable_string = f.read()
                     logger.log('TIMETABLE',
                                f'Read timetable from file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
-                return timetable_string
+                    return timetable_string
         # Если готового расписания нет, пишем новое
         timetable_string = f'Группа {str(group_id)}'
         conn = connection_to_sql(db_timetable)

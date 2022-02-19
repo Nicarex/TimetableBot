@@ -1,5 +1,5 @@
 from other import read_config, get_latest_file, connection_to_sql, sendMail
-from google_calendar import delete_all_events_in_calendar, import_timetable_to_calendar
+from calendar_timetable import create_calendar_file_with_timetable, download_calendar_file_to_github
 import sqlite3
 from logger import logger
 from glob import iglob
@@ -84,13 +84,7 @@ def create_db_calendars_list():
     c.execute("""CREATE TABLE IF NOT EXISTS calendars(
                 group_id        TEXT,
                 teacher         TEXT,
-                calendar_id     TEXT,
                 calendar_url    TEXT);
-                """)
-    c.execute("""CREATE TABLE IF NOT EXISTS user_processing(
-                email           TEXT,
-                vk_id_chat      TEXT,
-                vk_id_user      TEXT);
                 """)
     conn.commit()  # Сохранение изменений
     c.close()
@@ -352,21 +346,30 @@ def getting_the_difference_in_sql_files_and_sending_them():
     # Обновление расписания в календарях
     list_with_teachers = []
     list_with_groups = []
+    # Подключение к  бд
+    conn = connection_to_sql(name='calendars_list.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
     for row in difference:
+        # Если календарь существует для этого преподавателя
         if not str(row['Name']) in list_with_teachers:
             list_with_teachers += [str(row['Name'])]
-            if delete_all_events_in_calendar(teacher=str(row['Name'])) is not False:
-                if import_timetable_to_calendar(teacher=str(row['Name'])) is False:
-                    logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
-                else:
-                    logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
+            calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row['Name']),)).fetchone()
+            if calendar_row:
+                if create_calendar_file_with_timetable(teacher=str(row['Name'])) is True:
+                    if download_calendar_file_to_github(filename=str(row['Name'])) is False:
+                        logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
+                    else:
+                        logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
         if not str(row['Group']) in list_with_groups:
             list_with_groups += [str(row['Group'])]
-            if delete_all_events_in_calendar(group_id=str(row['Group'])) is not False:
-                if import_timetable_to_calendar(group_id=str(row['Group'])) is False:
-                    logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group"])}')
-                else:
-                    logger.log('SQL', f'Calendar for group = "{str(row["Group"])}" has been successfully updated')
+            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row['Group']),)).fetchone()
+            if calendar_row:
+                if create_calendar_file_with_timetable(group_id=str(row['Group'])) is True:
+                    if download_calendar_file_to_github(filename=str(row['Group'])) is False:
+                        logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group"])}')
+                    else:
+                        logger.log('SQL', f'Calendar for group = "{str(row["Group"])}" has been successfully updated')
     # ВК и почта
     # Запись разницы в списки для отправки в ВК и почту
     list_with_send_request = []
@@ -414,9 +417,9 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
     c = conn.cursor()
     c.execute('SELECT * FROM timetable')
     timetable_rows = c.fetchall()
+    # Ищет группы и преподавателей для переданного запроса и сохраняет их в свой список для дальнейшего по ним поиска
     matched_group = []
     matched_teacher = []
-    # Ищет группы и преподавателей для переданного запроса и сохраняет их в свой список для дальнейшего по ним поиска
     for row in timetable_rows:
         # Преподаватели
         if request.find(row['Name']) != -1 and not row['Name'] in matched_teacher:

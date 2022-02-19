@@ -4,6 +4,7 @@ timetable-dbs/
 timetable-files/
 .idea/
 venv/
+calendars/
 config.ini
 *.json
 *.pickle
