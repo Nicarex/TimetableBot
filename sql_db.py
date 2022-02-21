@@ -4,33 +4,41 @@ import sqlite3
 from logger import logger
 from glob import iglob
 from timetable import date_request, timetable
-from vk_api import VkApi
-from vk_api.utils import get_random_id
 from pathlib import Path
 import os
+import asyncio
+import platform
+from vkbottle import API
 
 
 # Инициализация
-group_token = read_config(vk='YES')
-vk_session = VkApi(token=group_token, api_version='5.131')
-vk = vk_session.get_api()
+api_token = read_config(vk='YES')
 
 
-def write_msg_chat(message: str, chat_id: str):
+# В Windows asyncio есть баг, это исправление
+if platform.system() == 'Windows':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+
+async def write_msg_chat(message: str, chat_id: str):
+    api = API(api_token)
+    chat_id = int(chat_id)
     try:
-        vk.messages.send(chat_id=int(chat_id), message='➡ ' + message, random_id=get_random_id())
+        await api.messages.send(message='➡ ' + message, chat_id=chat_id, random_id=0)
         return True
     except:
-        logger.log('SQL', f'Error happened while try to send chat message to chat = <{str(chat_id)}>')
+        logger.log('SQL', f'Error happened while try to send message to chat = <{str(chat_id)}>')
         return False
 
 
-def write_msg_user(message: str, user_id: str):
+async def write_msg_user(message: str, user_id: str):
+    api = API(api_token)
+    user_id = int(user_id)
     try:
-        vk.messages.send(user_id=int(user_id), message='➡ ' + message, random_id=get_random_id())
+        await api.messages.send(message='➡ ' + message, peer_id=user_id, random_id=0)
         return True
     except:
-        logger.log('SQL', f'Error happened while try to send user message to user = <{str(user_id)}>')
+        logger.log('SQL', f'Error happened while try to send message to user = <{str(user_id)}>')
         return False
 
 
@@ -97,217 +105,188 @@ create_db_calendars_list()
 
 
 # Отправляет письмо на почту о том, что расписание изменилось
-def send_notifications_email(list_now: list, list_next: list):
+def send_notifications_email(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
+    """
+    Берем по одному пользователю из бд с email, и смотрим, есть ли у него совпадение с кем-то из списков
+    Если есть, то отправляем письмо, что расписание изменилось для такой-то группы или преподавателя
+    """
     # Подключение к пользовательской базе данных
     conn = connection_to_sql('user_settings.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    search_teacher = []
-    search_group = []
-    search_teacher_next = []
-    search_group_next = []
-    sent_email = []
-    sent_email_next = []
-    # Поиск на текущую неделю
-    if list_now:
-        for row in list_now:
-            string = '%' + row + '%'
-            # Поиск преподавателя
-            c.execute("SELECT * FROM email WHERE teacher LIKE ? AND notification = 1", (string,))
-            search_teacher += c.fetchall()
-            # Поиск группы
-            c.execute("SELECT * FROM email WHERE group_id LIKE ? AND notification = 1", (string,))
-            search_group += c.fetchall()
-    # Поиск на следующую неделю
-    if list_next:
-        for row in list_next:
-            string = '%' + row + '%'
-            # Поиск препода
-            c.execute("SELECT * FROM email WHERE teacher LIKE ? AND notification = 1", (string,))
-            search_teacher_next += c.fetchall()
-            # Поиск группы
-            c.execute("SELECT * FROM email WHERE group_id LIKE ? AND notification = 1", (string,))
-            search_group_next += c.fetchall()
+    email_users = c.execute('SELECT * FROM email WHERE notification = 1').fetchall()
     c.close()
     conn.close()
-    if not search_group and not search_teacher and not search_group_next and not search_teacher_next:
-        logger.log('SQL', 'Nobody uses it in email')
-        return False
-    for i in search_teacher:
-        if not i['email'] in sent_email:
-            sent_email += [i['email']]
-            sendMail(to_email=str(i['email']), subject='Новое расписание на текущую неделю', text='Ваше расписание на текущую неделю было изменено\n\n' + getting_timetable_for_user(email=str(i['email'])))
-    for i in search_group:
-        if not i['email'] in sent_email:
-            # Добавление почты в список, чтобы больше не отправлялось на этот адрес
-            sent_email += [i['email']]
-            sendMail(to_email=str(i['email']), subject='Новое расписание на текущую неделю', text='Ваше расписание на текущую неделю было изменено\n\n' + getting_timetable_for_user(email=str(i['email'])))
-    for i in search_teacher_next:
-        if not i['email'] in sent_email_next:
-            sent_email_next += [i['email']]
-            sendMail(to_email=str(i['email']), subject='Новое расписание на следующую неделю', text='Ваше расписание на следущую неделю было изменено\n\n' + getting_timetable_for_user(next='YES', email=str(i['email'])))
-    for i in search_group_next:
-        if not i['email'] in sent_email_next:
-            sent_email_next += [i['email']]
-            sendMail(to_email=str(i['email']), subject='Новое расписание на следующую неделю', text='Ваше расписание на следущую неделю было изменено\n\n' + getting_timetable_for_user(next='YES', email=str(i['email'])))
+    for user in email_users:
+        answer = ''
+        if teacher_list_current_week:
+            for item in teacher_list_current_week:
+                if item in user['teacher']:
+                    answer += f'Расписание на текущую неделю для преподавателя {item} было изменено\n'
+                    if user['lesson_time'] == 1:
+                        answer += timetable(teacher=item) + '\n\n'
+                    else:
+                        answer += timetable(teacher=item, lesson_time='YES') + '\n\n'
+        if teacher_list_next_week:
+            for item in teacher_list_next_week:
+                if item in user['teacher']:
+                    answer += f'Расписание на следующую неделю для преподавателя {item} было изменено\n'
+                    if user['lesson_time'] == 1:
+                        answer += timetable(teacher=item, next='YES') + '\n\n'
+                    else:
+                        answer += timetable(teacher=item, lesson_time='YES', next='YES') + '\n\n'
+        if group_list_current_week:
+            for item in group_list_current_week:
+                if item in user['group_id']:
+                    answer += f'Расписание на текущую неделю для группы {item} было изменено\n'
+                    if user['lesson_time'] == 1:
+                        answer += timetable(group_id=item) + '\n\n'
+                    else:
+                        answer += timetable(group_id=item, lesson_time='YES') + '\n\n'
+        if group_list_next_week:
+            for item in group_list_next_week:
+                if item in user['group_id']:
+                    answer += f'Расписание на следующую неделю для группы {item} было изменено\n'
+                    if user['lesson_time'] == 1:
+                        answer += timetable(group_id=item, next='YES') + '\n\n'
+                    else:
+                        answer += timetable(group_id=item, lesson_time='YES', next='YES') + '\n\n'
+        if answer != '':
+            sendMail(to_email=user['email'], subject='Изменения в расписании', text=answer)
     return True
 
 
 # Отправляет сообщение в ВК о том, что расписание изменилось
-def send_notifications_vk_chat(list_now: list, list_next: list):
+def send_notifications_vk_chat(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
+    """
+    Берем по одному пользователю из бд, и смотрим, есть ли у него совпадение с кем-то из списков
+    Если есть, то отправляем сооббщение, что расписание изменилось для такой-то группы или преподавателя
+    """
     # Подключение к пользовательской базе данных
     conn = connection_to_sql('user_settings.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    # Списки для получения записей с почтой
-    search_group = []
-    search_teacher = []
-    search_group_next = []
-    search_teacher_next = []
-    sent_vk_chat = []
-    sent_vk_chat_next = []
-    # Поиск на текущую неделю
-    for row in list_now:
-        string = '%' + row + '%'
-        # Поиск группы
-        c.execute("SELECT * FROM vk_chat WHERE group_id LIKE ? AND notification = 1", (string,))
-        search_group += c.fetchall()
-        # Поиск препода
-        c.execute("SELECT * FROM vk_chat WHERE teacher LIKE ? AND notification = 1", (string,))
-        search_teacher += c.fetchall()
-    # Поиск на следующую неделю
-    for row in list_next:
-        string = '%' + row + '%'
-        # Поиск группы
-        c.execute("SELECT * FROM vk_chat WHERE group_id LIKE ? AND notification = 1", (string,))
-        search_group_next += c.fetchall()
-        # Поиск препода
-        c.execute("SELECT * FROM vk_chat WHERE teacher LIKE ? AND notification = 1", (string,))
-        search_teacher_next += c.fetchall()
+    vk_users = c.execute('SELECT * FROM vk_chat WHERE notification = 1').fetchall()
     c.close()
     conn.close()
-    if not search_group and not search_teacher and not search_group_next and not search_teacher_next:
-        logger.log('SQL', 'Nobody uses it in vk_chat')
-        return False
-    for i in search_group:
-        if str(i['vk_id']) not in sent_vk_chat:
-            sent_vk_chat += [str(i['vk_id'])]
-            answer = str(getting_timetable_for_user(vk_id_chat=str(i['vk_id']))).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
-            response = write_msg_chat(message='Новое расписание на текущую неделю', chat_id=str(i['vk_id']))
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_chat(message=j, chat_id=str(i['vk_id']))
-    for i in search_group_next:
-        if str(i['vk_id']) not in sent_vk_chat_next:
-            sent_vk_chat_next += [str(i['vk_id'])]
-            answer = str(getting_timetable_for_user(next='YES', vk_id_chat=str(i['vk_id']))).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
-            response = write_msg_chat(message='Новое расписание на следующую неделю', chat_id=str(i['vk_id']))
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_chat(message=j, chat_id=str(i['vk_id']))
-    for i in search_teacher:
-        if str(i['vk_id']) not in sent_vk_chat:
-            sent_vk_chat += [str(i['vk_id'])]
-            answer = str(getting_timetable_for_user(vk_id_chat=str(i['vk_id']))).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
-            response = write_msg_chat(message='Новое расписание на текущую неделю', chat_id=str(i['vk_id']))
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_chat(message=j, chat_id=str(i['vk_id']))
-    for i in search_teacher_next:
-        if str(i['vk_id']) not in sent_vk_chat_next:
-            sent_vk_chat_next += [str(i['vk_id'])]
-            answer = str(getting_timetable_for_user(next='YES', vk_id_chat=str(i['vk_id']))).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk chat = <{str(i["vk_id"])}>')
-            response = write_msg_chat(message='Новое расписание на следующую неделю', chat_id=str(i['vk_id']))
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_chat(message=j, chat_id=str(i['vk_id']))
+    for user in vk_users:
+        if teacher_list_current_week:
+            for item in teacher_list_current_week:
+                if user['teacher'] is not None:
+                    if item in user['teacher']:
+                        asyncio.run(
+                            write_msg_chat(message=f'Изменения в расписании на текущую неделю для преподавателя {item}',
+                                           chat_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(write_msg_chat(message=timetable(teacher=item), chat_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_chat(message=timetable(teacher=item, lesson_time='YES'),
+                                                       chat_id=user['vk_id']))
+        if teacher_list_next_week:
+            for item in teacher_list_next_week:
+                if user['teacher'] is not None:
+                    if item in user['teacher']:
+                        asyncio.run(write_msg_chat(
+                            message=f'Изменения в расписании на следующую неделю для преподавателя {item}',
+                            chat_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(
+                                write_msg_chat(message=timetable(teacher=item, next='YES'), chat_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_chat(message=timetable(teacher=item, lesson_time='YES', next='YES'),
+                                                       chat_id=user['vk_id']))
+        if group_list_current_week:
+            for item in group_list_current_week:
+                if user['group_id'] is not None:
+                    if item in user['group_id']:
+                        asyncio.run(
+                            write_msg_chat(message=f'Изменения в расписании на текущую неделю для группы {item}',
+                                           chat_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(write_msg_chat(message=timetable(group_id=item), chat_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_chat(message=timetable(group_id=item, lesson_time='YES'),
+                                                       chat_id=user['vk_id']))
+        if group_list_next_week:
+            for item in group_list_next_week:
+                if user['group_id'] is not None:
+                    if item in user['group_id']:
+                        asyncio.run(
+                            write_msg_chat(message=f'Изменения в расписании на следующую неделю для группы {item}',
+                                           chat_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(
+                                write_msg_chat(message=timetable(group_id=item, next='YES'), chat_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_chat(message=timetable(group_id=item, lesson_time='YES', next='YES'),
+                                                       chat_id=user['vk_id']))
     return True
 
 
 # Отправляет сообщение в ВК о том, что расписание изменилось
-def send_notifications_vk_user(list_now: list, list_next: list):
+def send_notifications_vk_user(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
+    """
+    Берем по одному пользователю из бд, и смотрим, есть ли у него совпадение с кем-то из списков
+    Если есть, то отправляем сооббщение, что расписание изменилось для такой-то группы или преподавателя
+    """
     # Подключение к пользовательской базе данных
     conn = connection_to_sql('user_settings.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    # Списки для получения записей с почтой
-    search_group = []
-    search_teacher = []
-    search_group_next = []
-    search_teacher_next = []
-    sent_vk_user = []
-    sent_vk_user_next = []
-    # Поиск на текущую неделю
-    for row in list_now:
-        string = '%' + row + '%'
-        # Поиск группы
-        c.execute("SELECT * FROM vk_user WHERE group_id LIKE ? AND notification = 1", (string,))
-        search_group += c.fetchall()
-        # Поиск препода
-        c.execute("SELECT * FROM vk_user WHERE teacher LIKE ? AND notification = 1", (string,))
-        search_teacher += c.fetchall()
-    # Поиск на следующую неделю
-    for row in list_next:
-        string = '%' + row + '%'
-        # Поиск группы
-        c.execute("SELECT * FROM vk_user WHERE group_id LIKE ? AND notification = 1", (string,))
-        search_group_next += c.fetchall()
-        # Поиск препода
-        c.execute("SELECT * FROM vk_user WHERE teacher LIKE ? AND notification = 1", (string,))
-        search_teacher_next += c.fetchall()
+    vk_users = c.execute('SELECT * FROM vk_user WHERE notification = 1').fetchall()
     c.close()
     conn.close()
-    if not search_group and not search_teacher and not search_group_next and not search_teacher_next:
-        logger.debug('Nobody uses it in vk_user')
-        return False
-    for i in search_group:
-        if i['vk_id'] not in sent_vk_user:
-            sent_vk_user += [i['vk_id']]
-            answer = str(getting_timetable_for_user(vk_id_user=i['vk_id'])).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
-            response = write_msg_user(message='Расписание на текущую неделю было изменено', user_id=i['vk_id'])
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_user(message=j, user_id=i['vk_id'])
-    for i in search_group_next:
-        if i['vk_id'] not in sent_vk_user_next:
-            sent_vk_user_next += [i['vk_id']]
-            answer = str(getting_timetable_for_user(next='YES', vk_id_user=i['vk_id'])).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
-            response = write_msg_user(message='Расписание на следующую неделю было изменено', user_id=i['vk_id'])
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_user(message=j, user_id=i['vk_id'])
-    for i in search_teacher:
-        if i['vk_id'] not in sent_vk_user:
-            sent_vk_user += [i['vk_id']]
-            answer = str(getting_timetable_for_user(vk_id_user=i['vk_id'])).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
-            response = write_msg_user(message='Расписание на текущую неделю было изменено', user_id=i['vk_id'])
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_user(message=j, user_id=i['vk_id'])
-    for i in search_teacher_next:
-        if i['vk_id'] not in sent_vk_user_next:
-            sent_vk_user_next += [i['vk_id']]
-            answer = str(getting_timetable_for_user(next='YES', vk_id_user=i['vk_id'])).split('Cut\n')
-            logger.log('VK', f'Send the difference in timetable to vk user = <{str(i["vk_id"])}>')
-            response = write_msg_user(message='Расписание на следующую неделю было изменено', user_id=i['vk_id'])
-            if response is not False:
-                for j in answer:
-                    if j != '':
-                        write_msg_user(message=j, user_id=i['vk_id'])
+    for user in vk_users:
+        if teacher_list_current_week:
+            for item in teacher_list_current_week:
+                if user['teacher'] is not None:
+                    if item in user['teacher']:
+                        asyncio.run(
+                            write_msg_user(message=f'Изменения в расписании на текущую неделю для преподавателя {item}',
+                                           user_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(write_msg_user(message=timetable(teacher=item), user_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_user(message=timetable(teacher=item, lesson_time='YES'),
+                                                       user_id=user['vk_id']))
+        if teacher_list_next_week:
+            for item in teacher_list_next_week:
+                if user['teacher'] is not None:
+                    if item in user['teacher']:
+                        asyncio.run(write_msg_user(
+                            message=f'Изменения в расписании на следующую неделю для преподавателя {item}',
+                            user_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(
+                                write_msg_user(message=timetable(teacher=item, next='YES'), user_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_user(message=timetable(teacher=item, lesson_time='YES', next='YES'),
+                                                       user_id=user['vk_id']))
+        if group_list_current_week:
+            for item in group_list_current_week:
+                if user['group_id'] is not None:
+                    if item in user['group_id']:
+                        asyncio.run(
+                            write_msg_user(message=f'Изменения в расписании на текущую неделю для группы {item}',
+                                           user_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(write_msg_user(message=timetable(group_id=item), user_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_user(message=timetable(group_id=item, lesson_time='YES'),
+                                                       user_id=user['vk_id']))
+        if group_list_next_week:
+            for item in group_list_next_week:
+                if user['group_id'] is not None:
+                    if item in user['group_id']:
+                        asyncio.run(
+                            write_msg_user(message=f'Изменения в расписании на следующую неделю для группы {item}',
+                                           user_id=user['vk_id']))
+                        if user['lesson_time'] == 1:
+                            asyncio.run(
+                                write_msg_user(message=timetable(group_id=item, next='YES'), user_id=user['vk_id']))
+                        else:
+                            asyncio.run(write_msg_user(message=timetable(group_id=item, lesson_time='YES', next='YES'),
+                                                       user_id=user['vk_id']))
     return True
 
 
@@ -346,14 +325,15 @@ def getting_the_difference_in_sql_files_and_sending_them():
     # Обновление расписания в календарях
     list_with_teachers = []
     list_with_groups = []
-    # Подключение к  бд
+    # Подключение к бд
     conn = connection_to_sql(name='calendars_list.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     for row in difference:
-        # Если календарь существует для этого преподавателя
+        # Добавление в список, чтобы повторно не обрабатывать
         if not str(row['Name']) in list_with_teachers:
             list_with_teachers += [str(row['Name'])]
+            # Если календарь существует для этого преподавателя
             calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row['Name']),)).fetchone()
             if calendar_row:
                 if create_calendar_file_with_timetable(teacher=str(row['Name'])) is True:
@@ -370,28 +350,43 @@ def getting_the_difference_in_sql_files_and_sending_them():
                         logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group"])}')
                     else:
                         logger.log('SQL', f'Calendar for group = "{str(row["Group"])}" has been successfully updated')
-    # ВК и почта
-    # Запись разницы в списки для отправки в ВК и почту
-    list_with_send_request = []
-    list_with_send_request_next = []
+    # Отправка разницы в ВК и почту
+    # Создание списков с датами на текущую и следующую недели для дальнейшего фильтра бд по ним
+    dates_current_week = []
+    for day in range(0, 7):
+        dates_current_week += [date_request(day_of_week=day, for_db='YES')]
+    dates_next_week = []
+    for day in range(0, 7):
+        dates_next_week += [date_request(day_of_week=day, for_db='YES', next='YES')]
+    # Списки с группами и преподавателями, у которых есть изменения в расписании на текущую и следующую недели
+    group_list_current_week = []
+    group_list_next_week = []
+    teacher_list_current_week = []
+    teacher_list_next_week = []
+    # Фильтрация значений из бд и распределение их по спискам
+    # Для каждого походящего значения создаем расписание с текущей бд расписания
+    # и сравниваем его с расписанием созданным с предыдущей бд расписания
     for row in difference:
-        for day in range(0,7):
-            if date_request(day_of_week=day, for_db='YES') == str(row['Date']):
-                if not row['Name'] in list_with_send_request:
-                    list_with_send_request += [row['Name']]
-                if not row['Group'] in list_with_send_request:
-                    list_with_send_request += [row['Group']]
-            elif date_request(day_of_week=day, for_db='YES', next='YES') == str(row['Date']):
-                if not row['Name'] in list_with_send_request_next:
-                    list_with_send_request_next += [row['Name']]
-                if not row['Group'] in list_with_send_request_next:
-                    list_with_send_request_next += [row['Group']]
+        if str(row['Date']) in dates_current_week:
+            if str(row['Name']) not in teacher_list_current_week:
+                if str(timetable(teacher=str(row['Name']))) != str(timetable(teacher=str(row['Name']), use_previous_timetable_db='YES')):
+                    teacher_list_current_week += [str(row['Name'])]
+            if str(row['Group']) not in group_list_current_week:
+                if str(timetable(group_id=str(row['Group']))) != str(timetable(group_id=str(row['Group']), use_previous_timetable_db='YES')):
+                    group_list_current_week += [str(row['Group'])]
+        elif str(row['Date']) in dates_next_week:
+            if str(row['Name']) not in teacher_list_next_week:
+                if str(timetable(teacher=str(row['Name']), next='YES')) != str(timetable(teacher=str(row['Name']), next='YES', use_previous_timetable_db='YES')):
+                    teacher_list_next_week += [str(row['Name'])]
+            if str(row['Group']) not in group_list_next_week:
+                if str(timetable(group_id=str(row['Group']), next='YES')) != str(timetable(group_id=str(row['Group']), next='YES', use_previous_timetable_db='YES')):
+                    group_list_next_week += [str(row['Group'])]
     logger.log('SQL', 'Got the differences. Trying to send them to users')
-    if send_notifications_email(list_now=list_with_send_request, list_next=list_with_send_request_next) is True:
+    if send_notifications_email(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by email')
-    if send_notifications_vk_chat(list_now=list_with_send_request, list_next=list_with_send_request_next) is True:
+    if send_notifications_vk_chat(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by vk_chat')
-    if send_notifications_vk_user(list_now=list_with_send_request, list_next=list_with_send_request_next) is True:
+    if send_notifications_vk_user(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by vk_user')
 
 
@@ -1478,4 +1473,4 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
 
 
 # with logger.catch():
-#     send_notifications_vk_user(list_now=list_now, list_next=list_next)
+#     getting_the_difference_in_sql_files_and_sending_them()

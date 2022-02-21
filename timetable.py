@@ -2,8 +2,9 @@ from logger import logger
 from datetime import timedelta
 import pendulum
 from other import get_latest_file, connection_to_sql
-from glob import glob
+from glob import glob, iglob
 from sqlite3 import Row
+import os
 
 
 # Дни недели для файла расписания
@@ -51,37 +52,50 @@ def name_of_day_string(day: int, next: str):
     return days_of_week[day] + date_request(day, for_file='YES', next=next) + '\n'
 
 
-def timetable(group_id: str = None, teacher: str = None, next: str = None, lesson_time: str = None):
+def timetable(group_id: str = None, teacher: str = None, next: str = None, lesson_time: str = None, use_previous_timetable_db: str = None):
+    """
+    Создает расписание на неделю.
+    next - следующая неделя
+    lesson_time - вывод времени пары в расписании
+
+    use_previous_timetable_db - использование предыдущей бд расписания (sql_db.getting_the_difference)
+    Расписание не сохраняется и не читается из файлов.
+    """
     logger.log('TIMETABLE', f'Request to show timetable for teacher = "{str(teacher)}" or group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
-    # Получение записей из бд расписания
-    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    if use_previous_timetable_db is None:
+        db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    else:
+        db_timetable = sorted(iglob('timetable-dbs/*.db'), key=os.path.getmtime)[-2]
     if db_timetable is None:
         logger.error('Cant import timetable to calendar because no db-files in timetable-dbs directory')
         return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
+    # Расписание для преподавателя
     if teacher is not None and group_id is None:
         # Поиск уже готового расписания в директории
-        if next is None:
-            if lesson_time is None:
-                path = f'timetable-files/{str(teacher)}.txt'
+        if use_previous_timetable_db is None:
+            if next is None:
+                if lesson_time is None:
+                    path = f'timetable-files/{str(teacher)}.txt'
+                else:
+                    path = f'timetable-files/{str(teacher)}_without_time.txt'
             else:
-                path = f'timetable-files/{str(teacher)}_without_time.txt'
-        else:
-            if lesson_time is None:
-                path = f'timetable-files/{str(teacher)}_next.txt'
-            else:
-                path = f'timetable-files/{str(teacher)}_next_without_time.txt'
-        if glob(path):
-            # Чтение файла расписания
-            with open(path, 'r', encoding='utf-8') as f:
-                """
-                Проверка на актуальность расписания
-                Берется первая строка с датой и сравнивается с понедельником
-                """
-                date_from_file = f.readline()
-                if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
-                    timetable_string = f.read()
-                    logger.log('TIMETABLE', f'Read timetable from file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
-                    return timetable_string
+                if lesson_time is None:
+                    path = f'timetable-files/{str(teacher)}_next.txt'
+                else:
+                    path = f'timetable-files/{str(teacher)}_next_without_time.txt'
+            if glob(path):
+                # Чтение файла расписания
+                with open(path, 'r', encoding='utf-8') as f:
+                    """
+                    Проверка на актуальность расписания
+                    Берется первая строка с датой и сравнивается с понедельником
+                    """
+                    date_from_file = f.readline()
+                    if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
+                        timetable_string = f.read()
+                        logger.log('TIMETABLE',
+                                   f'Read timetable from file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+                        return timetable_string
         # Если готового расписания нет, пишем новое
         timetable_string = f'Преподаватель {str(teacher)}'
         conn = connection_to_sql(db_timetable)
@@ -137,36 +151,38 @@ def timetable(group_id: str = None, teacher: str = None, next: str = None, lesso
         c.close()
         conn.close()
         # Запись файла расписания
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_string)
-            logger.log('TIMETABLE', f'Write timetable to file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+        if use_previous_timetable_db is None:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_string)
+                logger.log('TIMETABLE', f'Write timetable to file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
         logger.log('TIMETABLE', f'Timetable response for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
         return timetable_string
     elif group_id is not None and teacher is None:
         # Поиск уже готового расписания в директории
-        if next is None:
-            if lesson_time is None:
-                path = f'timetable-files/{str(group_id)}.txt'
+        if use_previous_timetable_db is None:
+            if next is None:
+                if lesson_time is None:
+                    path = f'timetable-files/{str(group_id)}.txt'
+                else:
+                    path = f'timetable-files/{str(group_id)}_without_time.txt'
             else:
-                path = f'timetable-files/{str(group_id)}_without_time.txt'
-        else:
-            if lesson_time is None:
-                path = f'timetable-files/{str(group_id)}_next.txt'
-            else:
-                path = f'timetable-files/{str(group_id)}_next_without_time.txt'
-        if glob(path):
-            # Чтение файла расписания
-            with open(path, 'r', encoding='utf-8') as f:
-                """
-                Проверка на актуальность расписания
-                Берется первая строка с датой и сравнивается с понедельником
-                """
-                date_from_file = f.readline()
-                if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
-                    timetable_string = f.read()
-                    logger.log('TIMETABLE',
-                               f'Read timetable from file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
-                    return timetable_string
+                if lesson_time is None:
+                    path = f'timetable-files/{str(group_id)}_next.txt'
+                else:
+                    path = f'timetable-files/{str(group_id)}_next_without_time.txt'
+            if glob(path):
+                # Чтение файла расписания
+                with open(path, 'r', encoding='utf-8') as f:
+                    """
+                    Проверка на актуальность расписания
+                    Берется первая строка с датой и сравнивается с понедельником
+                    """
+                    date_from_file = f.readline()
+                    if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
+                        timetable_string = f.read()
+                        logger.log('TIMETABLE',
+                                   f'Read timetable from file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+                        return timetable_string
         # Если готового расписания нет, пишем новое
         timetable_string = f'Группа {str(group_id)}'
         conn = connection_to_sql(db_timetable)
@@ -224,12 +240,11 @@ def timetable(group_id: str = None, teacher: str = None, next: str = None, lesso
         c.close()
         conn.close()
         # Запись файла расписания
-        with open(path, 'w', encoding='utf-8') as f:
-            f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_string)
-            logger.log('TIMETABLE',
-                       f'Write timetable to file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
-        logger.log('TIMETABLE',
-                   f'Timetable response for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+        if use_previous_timetable_db is None:
+            with open(path, 'w', encoding='utf-8') as f:
+                f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_string)
+                logger.log('TIMETABLE', f'Write timetable to file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+        logger.log('TIMETABLE', f'Timetable response for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
         return timetable_string
     else:
         logger.error('Incorrect request to show timetable. Teacher and group_id are None')
