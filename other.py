@@ -17,11 +17,11 @@ def read_config(email: str = None, vk: str = None, github: str = None):
         config.read("config.ini")
         if email is not None:
             imap_server = str(config['MAIL']['imap_server'])
-            username = str(config['TEST']['username'])
-            password = str(config['TEST']['password'])
+            username = str(config['MAIL']['username'])
+            password = str(config['MAIL']['password'])
             return imap_server, username, password
         elif vk is not None:
-            group_token = str(config['TEST']['group_token'])
+            group_token = str(config['VK']['group_token'])
             return group_token
         elif github is not None:
             github_token = str(config['GITHUB']['token'])
