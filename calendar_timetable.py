@@ -3,7 +3,7 @@ from other import connection_to_sql, get_latest_file, read_config
 from sqlite3 import Row
 from github import Github
 from urllib import request
-
+import time
 from icalendar import Calendar, Event
 import pendulum
 
@@ -244,16 +244,19 @@ def download_calendar_file_to_github(filename: str):
 
     with open(filepath, 'r', encoding='utf-8') as file:
         content = file.read()
-
-    if filepath in all_files:
-        contents = repo.get_contents(filepath)
-        repo.update_file(contents.path, "update", content, contents.sha, branch="main")
-        logger.log('CALENDAR', f'Calendar <{filename}> has been updated in GitHub')
-        return True
-    else:
-        repo.create_file(filepath, "create", content, branch="main")
-        logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
-        return True
+    try:
+        if filepath in all_files:
+            contents = repo.get_contents(filepath)
+            repo.update_file(contents.path, "update", content, contents.sha, branch="main")
+            logger.log('CALENDAR', f'Calendar <{filename}> has been updated in GitHub')
+            return True
+        else:
+            repo.create_file(filepath, "create", content, branch="main")
+            logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
+            return True
+    except:
+        logger.log('CALENDAR', f'Error happened while download calendar <{filename}> to GitHub. Wait 20 seconds')
+        time.sleep(20)
 
 
 # Отправляет в ответ ссылку на календарь

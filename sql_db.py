@@ -21,10 +21,12 @@ if platform.system() == 'Windows':
 
 
 async def write_msg_chat(message: str, chat_id: str):
+    logger.log('SQL', f'Try to send difference to vk chat <{str(chat_id)}>')
     api = API(api_token)
     chat_id = int(chat_id)
     try:
         await api.messages.send(message='➡ ' + message, chat_id=chat_id, random_id=0)
+        logger.log('SQL', f'Difference have been sent to vk chat <{str(chat_id)}>')
         return True
     except:
         logger.log('SQL', f'Error happened while try to send message to chat = <{str(chat_id)}>')
@@ -32,10 +34,12 @@ async def write_msg_chat(message: str, chat_id: str):
 
 
 async def write_msg_user(message: str, user_id: str):
+    logger.log('SQL', f'Try to send difference to vk user <{str(user_id)}>')
     api = API(api_token)
     user_id = int(user_id)
     try:
         await api.messages.send(message='➡ ' + message, peer_id=user_id, random_id=0)
+        logger.log('SQL', f'Difference have been sent to vk user <{str(user_id)}>')
         return True
     except:
         logger.log('SQL', f'Error happened while try to send message to user = <{str(user_id)}>')

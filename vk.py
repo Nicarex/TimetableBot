@@ -19,7 +19,7 @@ KEYBOARD_USER_MAIN = (
     .add(Text("Текущая неделя"), color=KeyboardButtonColor.PRIMARY)
     .add(Text("Следующая неделя"), color=KeyboardButtonColor.POSITIVE)
     .row()
-    .add(OpenLink(label='Расписание на сайте', link='https://www.amchs.ru/students/raspisanie/'))
+    .add(Text("Календарь"), color=KeyboardButtonColor.SECONDARY)
     .add(Text("Настройки"), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
 )
@@ -27,7 +27,7 @@ KEYBOARD_USER_MAIN = (
 KEYBOARD_USER_SETTINGS = (
     Keyboard(one_time=False, inline=False)
     .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
-    .add(Text('Календарь'), color=KeyboardButtonColor.SECONDARY)
+    .add(Text('Об авторе'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
     .row()
@@ -35,8 +35,7 @@ KEYBOARD_USER_SETTINGS = (
     .row()
     .add(Text('Удалить параметры групп и преподавателей'), color=KeyboardButtonColor.NEGATIVE)
     .row()
-    .add(Text('Об авторе'), color=KeyboardButtonColor.SECONDARY)
-    .add(Text('Вернуться назад'), color=KeyboardButtonColor.POSITIVE)
+    .add(Text('Вернуться назад'), color=KeyboardButtonColor.SECONDARY)
     .get_json()
 )
 
@@ -175,7 +174,7 @@ async def user_settings(message: Message):
 @bot.on.private_message(text="Календарь")
 async def user_calendar_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.\n\nЗапрос может выполняться несколько минут - это нормально, программа не зависла.', keyboard=KEYBOARD_USER_CALENDAR)
+    await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.', keyboard=KEYBOARD_USER_CALENDAR)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -276,7 +275,7 @@ async def user_search_in_request(message: Message, groups_and_teachers: str):
 
 
 # Обработка сообщений из бесед
-@bot.on.chat_message(text="Текущая неделя")
+@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя'])
 async def chat_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = str(getting_timetable_for_user(vk_id_chat=str(message.chat_id))).split('Cut\n')
@@ -289,7 +288,7 @@ async def chat_timetable_now(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Следующая неделя")
+@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя'])
 async def chat_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = str(getting_timetable_for_user(next='YES', vk_id_chat=str(message.chat_id))).split('Cut\n')
@@ -302,14 +301,14 @@ async def chat_timetable_next(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Начать")
+@bot.on.chat_message(text=["Начать", 'начать', '/начать', '/Начать'])
 async def chat_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer("Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text='Настройки')
+@bot.on.chat_message(text=['Настройки', 'настройки', '/настройки', '/Настройки'])
 async def chat_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = display_saved_settings(vk_id_chat=str(message.chat_id))
@@ -317,10 +316,10 @@ async def chat_settings(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Календарь")
+@bot.on.chat_message(text=["Календарь", 'календарь', '/календарь', '/Календарь'])
 async def chat_calendar_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.\n\nЗапрос может выполняться несколько минут - это нормально, программа не зависла.', keyboard=KEYBOARD_CHAT_CALENDAR)
+    await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.', keyboard=KEYBOARD_CHAT_CALENDAR)
     logger.log('VK', 'Response to message from vk user: "' + str(message.chat_id) + '"')
 
 
@@ -404,7 +403,7 @@ async def chat_about_author(message: Message):
 @bot.on.chat_message(text="<groups_and_teachers>")
 async def chat_search_in_request(message: Message, groups_and_teachers: str):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    if str(groups_and_teachers).find('@all') != -1:
+    if str(groups_and_teachers).find('@all') != -1 or str(groups_and_teachers).find('*all') != -1 or str(groups_and_teachers).find('@все') != -1 or str(groups_and_teachers).find('*все') != -1:
         return False
     search_response = search_group_and_teacher_in_request(request=str(groups_and_teachers), vk_id_chat=str(message.chat_id))
     if search_response is False:
@@ -417,7 +416,7 @@ async def chat_search_in_request(message: Message, groups_and_teachers: str):
 
 @bot.on.chat_message()
 async def ping(message: Message):
-    if str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1:
+    if str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1 or str(message.text).find('@все') != -1 or str(message.text).find('*все') != -1:
         return False
     answer = 'Выберите параметры'
     await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)
