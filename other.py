@@ -10,22 +10,28 @@ import configparser
 import yagmail
 
 
-def read_config(email: str = None, vk: str = None, github: str = None):
+def read_config(email: str = None, vk: str = None, vk_send: str = None, github: str = None, telegram: str = None):
     # Загрузка данных из конфига
     config = configparser.ConfigParser()
     try:
         config.read("config.ini")
         if email is not None:
             imap_server = str(config['MAIL']['imap_server'])
-            username = str(config['MAIL']['username'])
-            password = str(config['MAIL']['password'])
+            username = str(config['TEST']['username'])
+            password = str(config['TEST']['password'])
             return imap_server, username, password
         elif vk is not None:
-            group_token = str(config['VK']['group_token'])
+            group_token = str(config['TEST']['group_token'])
+            return group_token
+        elif vk_send is not None:
+            group_token = str(config['TEST']['group_token2'])
             return group_token
         elif github is not None:
             github_token = str(config['GITHUB']['token'])
             return github_token
+        elif telegram is not None:
+            token = str(config['TELEGRAM']['tg_token'])
+            return token
     except KeyError:
         logger.critical('Error when try to read config data. Maybe file not exist or fields are wrong')
 

@@ -21,28 +21,30 @@ if platform.system() == 'Windows':
 
 
 async def write_msg_chat(message: str, chat_id: str):
-    logger.log('SQL', f'Try to send difference to vk chat <{str(chat_id)}>')
+    logger.log('SQL', f'Try to send message to vk chat <{str(chat_id)}>')
     api = API(api_token)
     chat_id = int(chat_id)
     try:
         await api.messages.send(message='➡ ' + message, chat_id=chat_id, random_id=0)
-        logger.log('SQL', f'Difference have been sent to vk chat <{str(chat_id)}>')
+        logger.log('SQL', f'Message have been sent to vk chat <{str(chat_id)}>')
+        await asyncio.sleep(0.25)
         return True
     except:
-        logger.log('SQL', f'Error happened while try to send message to chat = <{str(chat_id)}>')
+        logger.log('SQL', f'Error happened while sending message to chat = <{str(chat_id)}>')
         return False
 
 
 async def write_msg_user(message: str, user_id: str):
-    logger.log('SQL', f'Try to send difference to vk user <{str(user_id)}>')
+    logger.log('SQL', f'Try to send message to vk user <{str(user_id)}>')
     api = API(api_token)
     user_id = int(user_id)
     try:
         await api.messages.send(message='➡ ' + message, peer_id=user_id, random_id=0)
-        logger.log('SQL', f'Difference have been sent to vk user <{str(user_id)}>')
+        logger.log('SQL', f'Message have been sent to vk user <{str(user_id)}>')
+        await asyncio.sleep(0.25)
         return True
     except:
-        logger.log('SQL', f'Error happened while try to send message to user = <{str(user_id)}>')
+        logger.log('SQL', f'Error happened while sending message to user = <{str(user_id)}>')
         return False
 
 
@@ -74,6 +76,15 @@ def create_db_user_settings():
     # Таблица для ВК чатов
     conn.execute("""CREATE TABLE IF NOT EXISTS vk_chat (
                 vk_id           TEXT,
+                group_id        TEXT,
+                teacher         TEXT,
+                notification    INTEGER,
+                lesson_time     INTEGER);
+                """)
+
+    # Таблица для ВК чатов
+    conn.execute("""CREATE TABLE IF NOT EXISTS telegram (
+                telegram_id     TEXT,
                 group_id        TEXT,
                 teacher         TEXT,
                 notification    INTEGER,
@@ -395,7 +406,7 @@ def getting_the_difference_in_sql_files_and_sending_them():
 
 
 # Поиск групп и преподавателей в запросе, и добавление их в пользовательскую бд
-def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
+def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
     """
     Поступает запрос -> смотрим, существуют ли такие данные в бд расписания
     есть - добавляем в базу данных пользователя, нет - ищем возможные совпадения из бд расписания ->
@@ -432,7 +443,7 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
         c.close()
         conn.close()
         # Почта
-        if email is not None and (vk_id_chat is None and vk_id_user is None):
+        if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
             response = ''
             conn = connection_to_sql('user_settings.db')
             conn.row_factory = sqlite3.Row
@@ -558,7 +569,7 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
                 logger.log('SQL', 'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" for email <' + email + '>')
             return response
         # ВК чат
-        elif vk_id_chat is not None and (email is None and vk_id_user is None):
+        elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
             response = ''
             conn = connection_to_sql('user_settings.db')
             conn.row_factory = sqlite3.Row
@@ -689,7 +700,7 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
                            'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" for vk chat <' + vk_id_chat + '>')
             return response
         # ВК пользователь
-        elif vk_id_user is not None and (email is None and vk_id_chat is None):
+        elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
             response = ''
             conn = connection_to_sql('user_settings.db')
             conn.row_factory = sqlite3.Row
@@ -819,6 +830,137 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
                 logger.log('SQL',
                            'Added values teachers: "' + response_teacher + '", groups: "' + response_group + '" for vk user <' + vk_id_user + '>')
             return response
+        # Telegram
+        elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+            response = ''
+            conn = connection_to_sql('user_settings.db')
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+            telegram_row = c.fetchone()
+            # Если запись в бд есть
+            if telegram_row:
+                # Поиск значений, которые уже есть в базе данных и вывод их
+                response_teacher = ''
+                response_group = ''
+                if matched_teacher and telegram_row['teacher'] is not None:
+                    for i in matched_teacher:
+                        if str(telegram_row['teacher']).find(str(i)) != -1:
+                            response_teacher += i + ' '
+                if matched_group and telegram_row['group_id'] is not None:
+                    for j in matched_group:
+                        if str(telegram_row['group_id']).find(str(j)) != -1:
+                            response_group += j + ' '
+                # Если преподаватели есть и группы есть, то добавить Enter
+                if response_teacher != '' and response_group != '':
+                    response += 'Для вас уже сохранены преподаватели: ' + response_teacher + '\n'
+                # Если преподаватели есть, а групп нет
+                elif response_teacher != '' and response_group == '':
+                    response += 'Для вас уже сохранены преподаватели: ' + response_teacher
+                # Если есть группы
+                if response_group != '':
+                    response += 'Для вас уже сохранены группы: ' + response_group
+                # Поиск значений, которых нет в базе данных и добавление их
+                response_teacher = ''
+                response_group = ''
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if str(telegram_row['teacher']).find(str(i)) == -1:
+                            teacher_value_in_telegram_row_at_now = \
+                                c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,)).fetchone()[
+                                    'teacher']
+                            if teacher_value_in_telegram_row_at_now is not None:
+                                c.execute('UPDATE telegram SET teacher = ? WHERE telegram_id = ?',
+                                          (teacher_value_in_telegram_row_at_now + '\n' + i, telegram))
+                                response_teacher += ' ' + i
+                            else:
+                                c.execute('UPDATE telegram SET teacher = ? WHERE telegram_id = ?', (i, telegram))
+                                response_teacher += i
+                if matched_group:
+                    for i in matched_group:
+                        if str(telegram_row['group_id']).find(str(i)) == -1:
+                            group_value_in_telegram_row_at_now = \
+                                c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,)).fetchone()[
+                                    'group_id']
+                            if group_value_in_telegram_row_at_now is not None:
+                                c.execute('UPDATE telegram SET group_id = ? WHERE telegram_id = ?',
+                                          (group_value_in_telegram_row_at_now + '\n' + i, telegram))
+                                response_group += ' ' + i
+                            else:
+                                c.execute('UPDATE telegram SET group_id = ? WHERE telegram_id = ?', (i, telegram))
+                                response_group += i
+                # Сохранение изменений и закрытие подключения
+                conn.commit()
+                c.close()
+                conn.close()
+                # Если ответ не пустой, преподаватели есть и группы есть, то добавить Enter в начало и конец
+                if response != '' and response_teacher != '' and response_group != '':
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher + '\n'
+                # Если ответ не пустой, преподаватели есть, а групп нет, то добавить Enter в начало
+                elif response != '' and response_teacher != '' and response_group == '':
+                    response += '\n\nДобавлены преподаватели: ' + response_teacher
+                # Если ответ пустой, преподаватели есть и группы есть, то добавить Enter в конец
+                if response == '' and response_teacher != '' and response_group != '':
+                    response += '\nДобавлены преподаватели: ' + response_teacher + '\n'
+                # Если ответ пустой, преподаватели есть, а групп нет, то Enter не добавлять
+                elif response == '' and response_teacher != '' and response_group == '':
+                    response += 'Добавлены преподаватели: ' + response_teacher
+                # Если есть группы
+                if response == '' and response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                elif response != '' and response_group != '':
+                    response += '\nДобавлены группы: ' + response_group
+                logger.log('SQL',
+                           f'Added values teachers: "{response_teacher}", groups: "{response_group}" for telegram <{telegram}>')
+            # Если записей нет для этой почты, то создаем новую
+            else:
+                logger.log('SQL', f'No values found for telegram <{telegram}>. Create new entry...')
+                insert_group = ''
+                insert_teacher = ''
+                response_teacher = ''
+                response_group = ''
+                # Обработка строк для добавления в базу данных и вывод добавленных
+                if matched_teacher:
+                    for i in matched_teacher:
+                        if matched_teacher[-1] == i:
+                            insert_teacher += i
+                            response_teacher += i
+                        else:
+                            insert_teacher += i + '\n'
+                            response_teacher += i + ' '
+                # Для выставления NULL в базе данных, если найденных преподавателей нет
+                else:
+                    insert_teacher = None
+                if matched_group:
+                    for i in matched_group:
+                        if matched_group[-1] == i:
+                            insert_group += i
+                            response_group += i
+                        else:
+                            insert_group += i + '\n'
+                            response_group += i + ' '
+                # Для выставления NULL в базе данных, если найденных групп нет
+                else:
+                    insert_group = None
+                # Добавление записи в пользовательскую бд
+                c.execute(
+                    'INSERT INTO telegram (telegram_id, group_id, teacher, notification, lesson_time) VALUES (?, ?, ?, 1, 1)',
+                    (telegram, insert_group, insert_teacher))
+                conn.commit()
+                c.close()
+                conn.close()
+                # Если преподаватели есть и группы есть, то добавить Enter
+                if response_teacher != '' and response_group != '':
+                    response += 'Добавлены преподаватели: ' + response_teacher + '\n'
+                # Если преподаватели есть, а групп нет
+                elif response_teacher != '' and response_group == '':
+                    response += 'Добавлены преподаватели: ' + response_teacher
+                # Если есть группы
+                if response_group != '':
+                    response += 'Добавлены группы: ' + response_group
+                logger.log('SQL',
+                           f'Added values teachers: "{response_teacher}", groups: "{response_group}" for telegram <{vk_id_user}>')
+            return response
         else:
             logger.error('Incorrect request to search groups and teachers')
             return False
@@ -866,9 +1008,9 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
 
 
 # Включение и отключение уведомлений об изменениях
-def enable_and_disable_notifications(enable: str = None, disable: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
+def enable_and_disable_notifications(enable: str = None, disable: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
     # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None):
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to enable or disable notifications for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -914,7 +1056,7 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
             logger.log('SQL', 'No values found for email <' + email + '>. Skip set notifications')
             return 'Невозможно изменить настройки уведомлений, так как для вас не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
     # Обработка vk chat
-    elif vk_id_chat is not None and (email is None and vk_id_user is None):
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to enable or disable notifications for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -960,7 +1102,7 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
             logger.log('SQL', 'No values found for vk chat <' + vk_id_chat + '>. Skip set notifications')
             return 'Невозможно изменить настройки уведомлений, так как не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
     # Обработка vk user
-    elif vk_id_user is not None and (email is None and vk_id_chat is None):
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
         logger.log('SQL', 'Incoming request to enable or disable notifications for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1005,15 +1147,60 @@ def enable_and_disable_notifications(enable: str = None, disable: str = None, em
             conn.close()
             logger.log('SQL', 'No values found for vk user <' + vk_id_user + '>. Skip set notifications')
             return 'Невозможно изменить настройки уведомлений, так как для вас не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
+    # Telegram
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+        logger.log('SQL', f'Incoming request to enable or disable notifications for telegram = <{telegram}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+        telegram_row = c.fetchone()
+        if telegram_row:
+            if enable is not None and telegram_row['notification'] == 1:
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Notifications for telegram <{telegram}> are already enabled')
+                return 'Уведомления уже включены'
+            elif disable is not None and telegram_row['notification'] == 0:
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Notifications for telegram <{telegram}> are already disabled')
+                return 'Уведомления уже отключены'
+            elif enable is not None:
+                c.execute('UPDATE telegram SET notification = ? WHERE telegram_id = ?', (1, telegram))
+                conn.commit()
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Notifications for telegram <{telegram}> are enabled')
+                return 'Уведомления успешно включены'
+            elif disable is not None:
+                c.execute('UPDATE telegram SET notification = ? WHERE telegram_id = ?', (0, telegram))
+                conn.commit()
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Notifications for telegram <{telegram}> are disabled')
+                return 'Уведомления успешно отключены'
+            # Неправильный запрос
+            else:
+                c.close()
+                conn.close()
+                logger.error(
+                    f'Incorrect request to enable or disable notifications for telegram <{telegram}>. Enable = {str(enable)}, disable = {str(disable)}')
+                return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
+        else:
+            c.close()
+            conn.close()
+            logger.log('SQL', f'No values found for telegram <{telegram}>. Skip set notifications')
+            return 'Невозможно изменить настройки уведомлений, так как для вас не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
     else:
-        logger.error('Incorrect request to enable or disable notifications. Email, vk chat and vk user are undefined')
+        logger.error('Incorrect request to enable or disable notifications. Email, vk chat, vk user and telegram are undefined')
         return '\nПроизошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
 
 
 # Включение и отключение отображения времени занятий в расписании
-def enable_and_disable_lesson_time(enable: str = None, disable: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
+def enable_and_disable_lesson_time(enable: str = None, disable: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
     # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None):
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to enable or disable lesson time for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1059,7 +1246,7 @@ def enable_and_disable_lesson_time(enable: str = None, disable: str = None, emai
             logger.log('SQL', 'No values found for email <' + email + '>. Skip set lesson time')
             return 'Невозможно изменить настройки отображения времени занятий, так как для вас не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
     # Обработка vk chat
-    elif vk_id_chat is not None and (email is None and vk_id_user is None):
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to enable or disable lesson time for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1105,7 +1292,7 @@ def enable_and_disable_lesson_time(enable: str = None, disable: str = None, emai
             logger.log('SQL', 'No values found for vk chat <' + vk_id_chat + '>. Skip set lesson time')
             return 'Невозможно изменить настройки отображения времени занятий, так как не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
     # Обработка vk user
-    elif vk_id_user is not None and (email is None and vk_id_chat is None):
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
         logger.log('SQL', 'Incoming request to enable or disable lesson time for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1150,15 +1337,60 @@ def enable_and_disable_lesson_time(enable: str = None, disable: str = None, emai
             conn.close()
             logger.log('SQL', 'No values found for vk user <' + vk_id_user + '>. Skip set lesson time')
             return 'Невозможно изменить настройки отображения времени занятий, так как для вас не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
+    # Telegram
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+        logger.log('SQL', f'Incoming request to enable or disable lesson time for telegram = <{telegram}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+        telegram_row = c.fetchone()
+        if telegram_row:
+            if enable is not None and telegram_row['lesson_time'] == 1:
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Lesson time for telegram <{telegram}> already enabled')
+                return 'Отображение времени занятий уже включено'
+            elif disable is not None and telegram_row['lesson_time'] == 0:
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Lesson time for telegram <{telegram}> already disabled')
+                return 'Отображение времени занятий уже отключено'
+            elif enable is not None:
+                c.execute('UPDATE telegram SET lesson_time = ? WHERE telegram_id = ?', (1, telegram))
+                conn.commit()
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Lesson time for telegram <{telegram}> are enabled')
+                return 'Отображение времени занятий успешно включено'
+            elif disable is not None:
+                c.execute('UPDATE telegram SET lesson_time = ? WHERE telegram_id = ?', (0, telegram))
+                conn.commit()
+                c.close()
+                conn.close()
+                logger.log('SQL', f'Lesson time for telegram <{telegram}> are disabled')
+                return 'Отображение времени занятий успешно отключено'
+            # Неправильный запрос
+            else:
+                c.close()
+                conn.close()
+                logger.error(
+                    f'Incorrect request to enable or disable lesson time for telegram = <{telegram}>. Enable = {str(enable)}, disable = {str(disable)}')
+                return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
+        else:
+            c.close()
+            conn.close()
+            logger.log('SQL', f'No values found for telegram <{telegram}>. Skip set lesson time')
+            return 'Невозможно изменить настройки отображения времени занятий, так как для вас не найдено сохраненных параметров. Добавьте сначала группу или преподавателя'
     else:
-        logger.error('Incorrect request to enable or disable notifications. Email, vk chat and vk user are undefined')
+        logger.error('Incorrect request to enable or disable notifications. Email, vk chat, vk user and telegram are undefined')
         return '\nПроизошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
 
 
 # Удаление сохраненных настроек групп и преподов для пользователей
-def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
+def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
     # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None):
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to delete all saved groups and teachers for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1183,7 +1415,7 @@ def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = No
             logger.log('SQL', 'No saved settings for email <' + email + '>. Skip delete groups and teachers')
             return '\nНевозможно удалить, так как для вас нет сохраненых параметров. Добавьте сначала группу или преподавателя'
     # Обработка vk chat
-    elif vk_id_chat is not None and (email is None and vk_id_user is None):
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to delete all saved groups and teachers for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1208,7 +1440,7 @@ def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = No
             logger.log('SQL', 'No saved groups or teachers for vk chat <' + vk_id_chat + '>')
             return 'Невозможно удалить, так как нет сохраненых параметров. Добавьте сначала группу или преподавателя'
     # Обработка vk user
-    elif vk_id_user is not None and (email is None and vk_id_chat is None):
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
         logger.log('SQL', 'Incoming request to delete all saved groups and teachers for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1232,15 +1464,39 @@ def delete_all_saved_groups_and_teachers(email: str = None, vk_id_chat: str = No
             conn.close()
             logger.log('SQL', 'No saved groups or teachers for vk user <' + vk_id_user + '>')
             return 'Нет сохраненных групп или преподавателей для удаления'
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+        logger.log('SQL', f'Incoming request to delete all saved groups and teachers for telegram = <{telegram}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+        result = c.fetchone()
+        if result:
+            if result['group_id'] is not None or result['teacher'] is not None:
+                c.execute('UPDATE telegram SET group_id = ? WHERE telegram_id = ?', (None, telegram))
+                c.execute('UPDATE telegram SET teacher = ? WHERE telegram_id = ?', (None, telegram))
+                conn.commit()
+                c.close()
+                conn.close()
+                logger.log('SQL', f'All saved groups and teachers for telegram <{telegram}> are deleted')
+                return 'Сохраненные группы и преподаватели успешно удалены'
+            else:
+                logger.log('SQL', f'No saved groups or teachers for telegram <{telegram}>')
+                return 'Нет сохраненных групп или преподавателей для удаления'
+        else:
+            c.close()
+            conn.close()
+            logger.log('SQL', f'No saved groups or teachers for telegram <{telegram}>')
+            return 'Нет сохраненных групп или преподавателей для удаления'
     else:
-        logger.error('Incorrect request to delete saved groups and teachers. Email, vk chat and vk user are undefined')
+        logger.error('Incorrect request to delete saved groups and teachers. Email, vk chat, vk user and telegram are undefined')
         return 'Невозможно удалить, так как для вас нет сохраненых параметров. Добавьте сначала группу или преподавателя'
 
 
 # Отображение текущих настроек
-def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
+def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
     # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None):
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to display all saved settings for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1279,7 +1535,7 @@ def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user
             logger.log('SQL', 'No saved settings for email <' + email + '>')
             return 'Для вас нет сохраненных параметров'
     # Обработка vk chat
-    elif vk_id_chat is not None and (email is None and vk_id_user is None):
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming request to display all saved settings for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1318,7 +1574,7 @@ def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user
             logger.log('SQL', 'No saved settings for vk chat <' + vk_id_chat + '>')
             return 'Нет сохраненных параметров'
     # Обработка vk user
-    elif vk_id_user is not None and (email is None and vk_id_chat is None):
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
         logger.log('SQL', 'Incoming request to display all saved settings for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1356,15 +1612,54 @@ def display_saved_settings(email: str = None, vk_id_chat: str = None, vk_id_user
         else:
             logger.log('SQL', 'No saved settings for vk user <' + vk_id_user + '>')
             return 'Для вас нет сохраненных параметров'
+    # Telegram
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+        logger.log('SQL', f'Incoming request to display all saved settings for telegram = <{telegram}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+        result = c.fetchone()
+        c.close()
+        conn.close()
+        if result is not None:
+            answer = ''
+            if result['group_id'] is None and result['teacher'] is None:
+                answer += 'Нет сохраненных групп и преподавателей\n'
+            if result['group_id'] is not None:
+                groups = str(result['group_id']).split('\n')
+                groups_answer = ''
+                for i in groups:
+                    groups_answer += i + ' '
+                answer += 'Сохранены группы: ' + groups_answer + '\n'
+            if result['teacher'] is not None:
+                teachers = str(result['teacher']).split('\n')
+                teachers_answer = ''
+                for i in teachers:
+                    teachers_answer += i + ' '
+                answer += 'Сохранены преподаватели: ' + teachers_answer + '\n'
+            if result['notification'] == 1:
+                answer += 'Уведомления включены\n'
+            elif result['notification'] == 0:
+                answer += 'Уведомления отключены\n'
+            if result['lesson_time'] == 1:
+                answer += 'Отображение времени занятий включено'
+            elif result['lesson_time'] == 0:
+                answer += 'Отображение времени занятий отключено'
+            logger.log('SQL', f'Display saved settings for telegram <{telegram}>')
+            return answer
+        else:
+            logger.log('SQL', f'No saved settings for telegram <{telegram}>')
+            return 'Для вас нет сохраненных параметров'
     else:
-        logger.error('Incorrect request to delete saved groups and teachers. Email, vk chat and vk user are undefined')
+        logger.error('Incorrect request to delete saved groups and teachers. Email, vk chat, vk user and telegram are undefined')
         return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
 
 
 # Получение расписания для пользователя
-def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None):
+def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
     # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None):
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming timetable request for email = <' + email + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1400,7 +1695,7 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
             logger.log('SQL', 'No saved groups or teachers for email <' + email + '>')
             return 'Нет сохраненных групп или преподавателей для отправки расписания'
     # Обработка vk chat
-    elif vk_id_chat is not None and (email is None and vk_id_user is None):
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
         logger.log('SQL', 'Incoming timetable request for vk chat = <' + vk_id_chat + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1436,7 +1731,7 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
             logger.log('SQL', 'No saved groups or teachers for vk chat <' + vk_id_chat + '>')
             return 'Нет сохраненных групп или преподавателей для отправки расписания'
     # Обработка vk user
-    elif vk_id_user is not None and (email is None and vk_id_chat is None):
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
         logger.log('SQL', 'Incoming timetable request for vk user = <' + vk_id_user + '>')
         conn = connection_to_sql('user_settings.db')
         conn.row_factory = sqlite3.Row
@@ -1471,8 +1766,44 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
         else:
             logger.log('SQL', 'No saved groups or teachers for vk user <' + vk_id_user + '>')
             return 'Нет сохраненных групп или преподавателей для отправки расписания'
+    # Telegram
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+        logger.log('SQL', f'Incoming timetable request for telegram = <{telegram}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+        telegram_row = c.fetchone()
+        c.close()
+        conn.close()
+        if telegram_row is not None:
+            teachers_answer = ''
+            groups_answer = ''
+            lesson_time = None
+            if telegram_row['lesson_time'] == 0:
+                lesson_time = 'NO'
+            if telegram_row['group_id'] is None and telegram_row['teacher'] is None:
+                logger.log('SQL', f'No saved groups or teachers for telegram <{telegram}>')
+                return 'Нет сохраненных групп или преподавателей для отправки расписания'
+            if telegram_row['teacher'] is not None:
+                teachers = str(telegram_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
+                for i in teachers:
+                    teachers_answer += 'Cut\n' + timetable(teacher=str(i), next=next, lesson_time=lesson_time) + '\n'
+            if telegram_row['group_id'] is not None:
+                groups = str(telegram_row['group_id'])
+                groups = groups.replace('\r', '')
+                groups = groups.split('\n')
+                for i in groups:
+                    groups_answer += 'Cut\n' + timetable(group_id=str(i), next=next, lesson_time=lesson_time) + '\n'
+            logger.log('SQL', f'Response to timetable request for telegram <{telegram}>')
+            return teachers_answer + groups_answer
+        else:
+            logger.log('SQL', f'No saved groups or teachers for telegram <{telegram}>')
+            return 'Нет сохраненных групп или преподавателей для отправки расписания'
     else:
-        logger.error('Incorrect timetable request. Email, vk chat and vk user are undefined')
+        logger.error('Incorrect timetable request. Email, vk chat, vk user and telegram are undefined')
         return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
 
 

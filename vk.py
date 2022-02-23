@@ -251,7 +251,7 @@ async def user_back(message: Message):
 @bot.on.private_message(text="Об авторе")
 async def user_about_author(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    await message.answer('Автор бота:\nНасонов Никита\nстудент 307 группы\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_USER_SETTINGS)
+    await message.answer('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -275,7 +275,7 @@ async def user_search_in_request(message: Message, groups_and_teachers: str):
 
 
 # Обработка сообщений из бесед
-@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя'])
+@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая'])
 async def chat_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = str(getting_timetable_for_user(vk_id_chat=str(message.chat_id))).split('Cut\n')
@@ -288,7 +288,7 @@ async def chat_timetable_now(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя'])
+@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая'])
 async def chat_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = str(getting_timetable_for_user(next='YES', vk_id_chat=str(message.chat_id))).split('Cut\n')
@@ -396,7 +396,7 @@ async def chat_back(message: Message):
 @bot.on.chat_message(text="Об авторе")
 async def chat_about_author(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer('Автор бота:\nНасонов Никита\nстудент 307 группы\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_CHAT_SETTINGS)
+    await message.answer('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
