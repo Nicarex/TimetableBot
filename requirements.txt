@@ -4,7 +4,7 @@ imap_tools==0.51.1
 pendulum==2.1.2
 chardet==4.0.0
 pandas==1.4.1
-vkbottle==4.2.0
+vkbottle==4.2.1
 vk_api==11.9.7
 aiohttp==3.8.1
 aiogram==2.19
@@ -13,3 +13,7 @@ icalendar==4.0.9
 requests==2.27.1
 configparser==5.2.0
 PyGithub==1.55
+ujson==5.1.0
+aiodns==3.0.0
+nextcord==2.0.0a8
+aiogram-broadcaster==0.0.7

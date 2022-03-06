@@ -260,7 +260,7 @@ def download_calendar_file_to_github(filename: str):
 
 
 # Отправляет в ответ ссылку на календарь
-def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
+def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None, discord: str = None):
     """
     Пользователь запрашивает календарь.
     Смотрим, от какого сервиса пришел запрос.
@@ -272,7 +272,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
     Если у пользователя несколько сохраненных значений, то возвращаем ссылки сразу на все календари.
     """
     # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None):
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None and discord is None):
         logger.log('CALENDAR', f'Request to show calendar urls for email = <{str(email)}>')
         # Подключение к пользовательской бд
         conn = connection_to_sql(name='user_settings.db')
@@ -281,7 +281,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
         user_row = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()
         c.close()
         conn.close()
-    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None):
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None and discord is None):
         logger.log('CALENDAR', f'Request to show calendar urls for vk chat = <{str(vk_id_chat)}>')
         # Подключение к пользовательской бд
         conn = connection_to_sql(name='user_settings.db')
@@ -290,7 +290,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
         user_row = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()
         c.close()
         conn.close()
-    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None):
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None and discord is None):
         logger.log('CALENDAR', f'Request to show calendar urls for vk user = <{str(vk_id_user)}>')
         # Подключение к пользовательской бд
         conn = connection_to_sql(name='user_settings.db')
@@ -299,7 +299,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
         user_row = c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()
         c.close()
         conn.close()
-    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None):
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None and discord is None):
         logger.log('CALENDAR', f'Request to show calendar urls for telegram = <{str(telegram)}>')
         # Подключение к пользовательской бд
         conn = connection_to_sql(name='user_settings.db')
@@ -308,8 +308,17 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
         user_row = c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,)).fetchone()
         c.close()
         conn.close()
+    elif discord is not None and (email is None and vk_id_chat is None and vk_id_user is None and telegram is None):
+        logger.log('CALENDAR', f'Request to show calendar urls for discord = <{str(discord)}>')
+        # Подключение к пользовательской бд
+        conn = connection_to_sql(name='user_settings.db')
+        conn.row_factory = Row
+        c = conn.cursor()
+        user_row = c.execute('SELECT * FROM discord WHERE discord_id = ?', (discord,)).fetchone()
+        c.close()
+        conn.close()
     else:
-        logger.error('Incorrect request to show calendar url to user. Email, vk chat and vk user are undefined')
+        logger.error('Incorrect request to show calendar url to user. Email, vk chat, vk user, telegram and discord are undefined')
         return 'Что-то пошло не так при обработке запроса, повторите позже'
 
     # Если есть сохраненные параметры для пользователя
