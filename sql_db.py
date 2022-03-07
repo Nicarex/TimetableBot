@@ -5,7 +5,6 @@ import sqlite3
 from glob import iglob
 from pathlib import Path
 
-import nextcord
 from vkbottle import API
 from aiogram_broadcaster import TextBroadcaster
 
@@ -54,7 +53,7 @@ async def write_msg_vk_user(message: str, user_id: str):
         return False
 
 
-async def write_msg_telegram(message: str, tg_id: str|list):
+async def write_msg_telegram(message: str, tg_id):
     logger.log('SQL', f'Try to send message to telegram <{str(tg_id)}>')
     broadcaster = TextBroadcaster(tg_id, '➡ ' + message, bot_token=tg_token)
     try:
