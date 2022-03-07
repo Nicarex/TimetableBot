@@ -1,8 +1,9 @@
 from nextcord import Interaction, SlashOption
 from nextcord.ext import commands
-from other import read_config
+from other import read_config, connection_to_sql
 from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
 from logger import logger
+import sqlite3
 from calendar_timetable import show_calendar_url_to_user
 
 
@@ -115,6 +116,28 @@ async def add(
         else:
             await interaction.response.send_message(search_response)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
+
+
+@bot.command(pass_context=True)
+async def broadcast(ctx, *, msg):
+    if str(ctx.author) != 'Nicare#6529':
+        return True
+    logger.log('DISCORD', 'Try to send broadcast messages')
+    # Подключение к пользовательской базе данных
+    conn = connection_to_sql('user_settings.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    users = c.execute('SELECT * FROM discord WHERE notification = 1').fetchall()
+    c.close()
+    conn.close()
+    for user in users:
+        try:
+            channel = bot.get_channel(int(user['discord_id']))
+            await channel.send(msg)
+        except:
+            logger.log('DISCORD', f'Error happened while try to send broadcast message to channel <{user["discord_id"]}>')
+        finally:
+            logger.log('DISCORD', f'Sent broadcast message to channel <{user["discord_id"]}>')
 
 
 # Запуск сервера

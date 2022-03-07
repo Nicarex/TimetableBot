@@ -5,6 +5,7 @@ import sqlite3
 from glob import iglob
 from pathlib import Path
 
+import nextcord
 from vkbottle import API
 from aiogram_broadcaster import TextBroadcaster
 
@@ -338,16 +339,16 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
 def send_notifications_telegram(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     """
     Берем по одному пользователю из бд, и смотрим, есть ли у него совпадение с кем-то из списков
-    Если есть, то отправляем сооббщение, что расписание изменилось для такой-то группы или преподавателя
+    Если есть, то отправляем сообщение, что расписание изменилось для такой-то группы или преподавателя
     """
     # Подключение к пользовательской базе данных
     conn = connection_to_sql('user_settings.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    vk_users = c.execute('SELECT * FROM telegram WHERE notification = 1').fetchall()
+    users = c.execute('SELECT * FROM telegram WHERE notification = 1').fetchall()
     c.close()
     conn.close()
-    for user in vk_users:
+    for user in users:
         if teacher_list_current_week:
             for item in teacher_list_current_week:
                 if user['teacher'] is not None:
