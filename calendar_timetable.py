@@ -244,19 +244,25 @@ def download_calendar_file_to_github(filename: str):
 
     with open(filepath, 'r', encoding='utf-8') as file:
         content = file.read()
-    try:
-        if filepath in all_files:
-            contents = repo.get_contents(filepath)
+    # Обновление файла в GitHub
+    if filepath in all_files:
+        contents = repo.get_contents(filepath)
+        try:
             repo.update_file(contents.path, "update", content, contents.sha, branch="main")
-            logger.log('CALENDAR', f'Calendar <{filename}> has been updated in GitHub')
-            return True
-        else:
+        except:
+            logger.log('CALENDAR', f'Error happened while download calendar <{filename}> to GitHub. Wait 20 seconds')
+            time.sleep(20)
+        logger.log('CALENDAR', f'Calendar <{filename}> has been updated in GitHub')
+        return True
+    # Создание нового файла в GitHub
+    else:
+        try:
             repo.create_file(filepath, "create", content, branch="main")
-            logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
-            return True
-    except:
-        logger.log('CALENDAR', f'Error happened while download calendar <{filename}> to GitHub. Wait 20 seconds')
-        time.sleep(20)
+        except:
+            logger.log('CALENDAR', f'Error happened while download calendar <{filename}> to GitHub. Wait 20 seconds')
+            time.sleep(20)
+        logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
+        return True
 
 
 # Отправляет в ответ ссылку на календарь
