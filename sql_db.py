@@ -382,7 +382,7 @@ def send_notifications_telegram(group_list_current_week: list, group_list_next_w
                                 message=timetable(group_id=item), tg_id=user['telegram_id']))
                         else:
                             asyncio.run(write_msg_telegram(
-                                message=timetable(group_id=item, lesson_time='YES')))
+                                message=timetable(group_id=item, lesson_time='YES'), tg_id=user['telegram_id']))
         if group_list_next_week:
             for item in group_list_next_week:
                 if user['group_id'] is not None:
