@@ -100,7 +100,7 @@ def name_of_day_string(day: int, next: str):
     return list_with_days_of_week[day] + date_request(day, for_file='YES', next=next) + '\n'
 
 
-def timetable(group_id: str = None, teacher: str = None, month: str = None, next: str = None, not_show_lesson_time: str = None, use_previous_timetable_db: str = None):
+def timetable(group_id: str = None, teacher: str = None, month: str = None, next: str = None, lesson_time: str = None, use_previous_timetable_db: str = None):
     """
     Возвращает расписание для группы или преподавателя на неделю, или месяц
     group_id - номер группы (307)
@@ -113,7 +113,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     При запросе расписания:
     Выбирается файл бд, поиск уже готового расписания -> проверяется на актуальность \ создаем новое, записываем в файл, возвращаем -> возвращаем \ создаем новое, записываем в файл, возвращаем
     """
-    logger.log('TIMETABLE', f'Request to show timetable for teacher = "{str(teacher)}" or group = "{str(group_id)}", month = "{str(month)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
+    logger.log('TIMETABLE', f'Request to show timetable for teacher = "{str(teacher)}" or group = "{str(group_id)}", month = "{str(month)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
 
     # Выбирается бд
     if use_previous_timetable_db is None:
@@ -166,14 +166,14 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                 # Текущая неделя
                 if next is None:
                     # С отображением времени
-                    if not_show_lesson_time is None:
+                    if lesson_time is None:
                         path = f'timetable-files/{str(teacher)}.txt'
                     # Без отображения времени
                     else:
                         path = f'timetable-files/{str(teacher)}_without_time.txt'
                 # Следующая неделя
                 else:
-                    if not_show_lesson_time is None:
+                    if lesson_time is None:
                         path = f'timetable-files/{str(teacher)}_next.txt'
                     else:
                         path = f'timetable-files/{str(teacher)}_next_without_time.txt'
@@ -182,14 +182,14 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                 # Текущий месяц
                 if next is None:
                     # С отображением времени
-                    if not_show_lesson_time is None:
+                    if lesson_time is None:
                         path = f'timetable-files/{str(teacher)}_month.txt'
                     # Без отображения времени
                     else:
                         path = f'timetable-files/{str(teacher)}_month_without_time.txt'
                 # Следующий месяц
                 else:
-                    if not_show_lesson_time is None:
+                    if lesson_time is None:
                         path = f'timetable-files/{str(teacher)}_month_next.txt'
                     else:
                         path = f'timetable-files/{str(teacher)}_month_next_without_time.txt'
@@ -205,7 +205,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
                         timetable_string = f.read()
                         logger.log('TIMETABLE',
-                                   f'Read timetable from file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
+                                   f'Read timetable from file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
                         return timetable_string
         # Если готового расписания нет, пишем новое
         timetable_string = f'Преподаватель {str(teacher)}'
@@ -248,12 +248,12 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                         row = timetable_rows[0]
                         # Строка в зависимости от темы
                         if row['Themas'] is not None:
-                            if not_show_lesson_time is None:
+                            if lesson_time is None:
                                 timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
                             else:
                                 timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
                         elif row['Themas'] is None:
-                            if not_show_lesson_time is None:
+                            if lesson_time is None:
                                 timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
                             else:
                                 timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
@@ -296,12 +296,12 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                         row = timetable_rows[0]
                         # Строка в зависимости от темы
                         if row['Themas'] is not None:
-                            if not_show_lesson_time is None:
+                            if lesson_time is None:
                                 timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
                             else:
                                 timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
                         elif row['Themas'] is None:
-                            if not_show_lesson_time is None:
+                            if lesson_time is None:
                                 timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
                             else:
                                 timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
@@ -315,20 +315,20 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
         if use_previous_timetable_db is None:
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_string)
-                logger.log('TIMETABLE', f'Write timetable to file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
-        logger.log('TIMETABLE', f'Timetable response for teacher = "{str(teacher)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
+                logger.log('TIMETABLE', f'Write timetable to file <{path}> for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+        logger.log('TIMETABLE', f'Timetable response for teacher = "{str(teacher)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
         return timetable_string
     # Группа
     elif group_id is not None and teacher is None:
         # Поиск уже готового расписания в директории
         if use_previous_timetable_db is None:
             if next is None:
-                if not_show_lesson_time is None:
+                if lesson_time is None:
                     path = f'timetable-files/{str(group_id)}.txt'
                 else:
                     path = f'timetable-files/{str(group_id)}_without_time.txt'
             else:
-                if not_show_lesson_time is None:
+                if lesson_time is None:
                     path = f'timetable-files/{str(group_id)}_next.txt'
                 else:
                     path = f'timetable-files/{str(group_id)}_next_without_time.txt'
@@ -343,7 +343,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     if date_from_file == date_request(day_of_week=0, for_file='YES', next=next) + '\n':
                         timetable_string = f.read()
                         logger.log('TIMETABLE',
-                                   f'Read timetable from file <{path}> for group = "{str(group_id)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
+                                   f'Read timetable from file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
                         return timetable_string
         # Если готового расписания нет, пишем новое
         timetable_string = f'Группа {str(group_id)}'
@@ -386,12 +386,12 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     row = timetable_rows[0]
                     # Строка в зависимости от темы
                     if row['Themas'] is not None:
-                        if not_show_lesson_time is None:
+                        if lesson_time is None:
                             timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])}'
                         else:
                             timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])}'
                     elif row['Themas'] is None:
-                        if not_show_lesson_time is None:
+                        if lesson_time is None:
                             timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])}'
                         else:
                             timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])}'
@@ -405,8 +405,8 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
         if use_previous_timetable_db is None:
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(date_request(day_of_week=0, for_file='YES', next=next) + '\n' + timetable_string)
-                logger.log('TIMETABLE', f'Write timetable to file <{path}> for group = "{str(group_id)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
-        logger.log('TIMETABLE', f'Timetable response for group = "{str(group_id)}", next = "{str(next)}", not_show_lesson_time = "{str(not_show_lesson_time)}"')
+                logger.log('TIMETABLE', f'Write timetable to file <{path}> for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
+        logger.log('TIMETABLE', f'Timetable response for group = "{str(group_id)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
         return timetable_string
     else:
         logger.error('Incorrect request to show timetable. Teacher and group_id are None')
@@ -414,5 +414,5 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
 
 
 # with logger.catch():
-    # timetable(group_id=None, teacher=None, month='YES', next=None, not_show_lesson_time=None)
+    # timetable(group_id=None, teacher=None, month='YES', next=None, lesson_time=None)
     # print(work_load(teacher='Уфимцева А.М.', next=None))
