@@ -154,7 +154,7 @@ async def user_timetable_next(message: Message):
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
-@bot.on.private_message(text="Учебная нагрузка на текущую неделю")
+@bot.on.private_message(text="Учебная нагрузка на текущий месяц")
 async def user_work_load(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     answer = str(getting_workload_for_user(vk_id_user=str(message.from_id))).split('Cut\n')
@@ -167,7 +167,7 @@ async def user_work_load(message: Message):
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
-@bot.on.private_message(text="Учебная нагрузка на следующую неделю")
+@bot.on.private_message(text="Учебная нагрузка на следующий месяц")
 async def user_work_load(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     answer = str(getting_workload_for_user(next='YES', vk_id_user=str(message.from_id))).split('Cut\n')
