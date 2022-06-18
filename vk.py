@@ -7,7 +7,7 @@ from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, Key
 from vkbottle.bot import Bot, Message
 from other import read_config
 from calendar_timetable import show_calendar_url_to_user
-from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time
+from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user
 
 
 group_token = read_config(vk='YES')
@@ -41,7 +41,7 @@ KEYBOARD_USER_SETTINGS = (
 
 KEYBOARD_USER_CALENDAR = (
     Keyboard(one_time=False, inline=False)
-    .add(Text('Да, я прочитал инструкцию'), color=KeyboardButtonColor.PRIMARY)
+    .add(Text('Да, я прочитал(а) инструкцию'), color=KeyboardButtonColor.PRIMARY)
     .row()
     .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
     .row()
@@ -154,6 +154,32 @@ async def user_timetable_next(message: Message):
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
+@bot.on.private_message(text="Учебная нагрузка на текущую неделю")
+async def user_work_load(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    answer = str(getting_workload_for_user(vk_id_user=str(message.from_id))).split('Cut\n')
+    for i in answer:
+        if i != '':
+            if answer[-1] == i:
+                await message.answer('➡ ' + i, keyboard=KEYBOARD_USER_MAIN)
+            else:
+                await message.answer('➡ ' + i)
+    logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
+
+
+@bot.on.private_message(text="Учебная нагрузка на следующую неделю")
+async def user_work_load(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    answer = str(getting_workload_for_user(next='YES', vk_id_user=str(message.from_id))).split('Cut\n')
+    for i in answer:
+        if i != '':
+            if answer[-1] == i:
+                await message.answer('➡ ' + i, keyboard=KEYBOARD_USER_MAIN)
+            else:
+                await message.answer('➡ ' + i)
+    logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
+
+
 @bot.on.private_message(text="Начать")
 async def user_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
@@ -178,7 +204,7 @@ async def user_calendar_settings(message: Message):
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
-@bot.on.private_message(text="Да, я прочитал инструкцию")
+@bot.on.private_message(text="Да, я прочитал(а) инструкцию")
 async def user_calendar_response(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     await message.answer('Ваш запрос выполняется, пожалуйста, подождите...', keyboard=KEYBOARD_USER_MAIN)

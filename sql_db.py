@@ -11,7 +11,7 @@ from aiogram_broadcaster import TextBroadcaster
 from calendar_timetable import create_calendar_file_with_timetable, download_calendar_file_to_github
 from logger import logger
 from other import read_config, get_latest_file, connection_to_sql, sendMail
-from timetable import date_request, timetable
+from timetable import date_request, timetable, workload
 
 # Инициализация
 vk_token = read_config(vk='YES')
@@ -165,7 +165,7 @@ def send_notifications_email(group_list_current_week: list, group_list_next_week
         answer = ''
         if teacher_list_current_week:
             for item in teacher_list_current_week:
-                if item in user['teacher']:
+                if str(item) in str(user['teacher']):
                     answer += f'Расписание на текущую неделю для преподавателя {item} было изменено\n'
                     if user['lesson_time'] == 1:
                         answer += timetable(teacher=item) + '\n\n'
@@ -173,7 +173,7 @@ def send_notifications_email(group_list_current_week: list, group_list_next_week
                         answer += timetable(teacher=item, lesson_time='YES') + '\n\n'
         if teacher_list_next_week:
             for item in teacher_list_next_week:
-                if item in user['teacher']:
+                if str(item) in str(user['teacher']):
                     answer += f'Расписание на следующую неделю для преподавателя {item} было изменено\n'
                     if user['lesson_time'] == 1:
                         answer += timetable(teacher=item, next='YES') + '\n\n'
@@ -181,7 +181,7 @@ def send_notifications_email(group_list_current_week: list, group_list_next_week
                         answer += timetable(teacher=item, lesson_time='YES', next='YES') + '\n\n'
         if group_list_current_week:
             for item in group_list_current_week:
-                if item in user['group_id']:
+                if str(item) in str(user['group_id']):
                     answer += f'Расписание на текущую неделю для группы {item} было изменено\n'
                     if user['lesson_time'] == 1:
                         answer += timetable(group_id=item) + '\n\n'
@@ -189,7 +189,7 @@ def send_notifications_email(group_list_current_week: list, group_list_next_week
                         answer += timetable(group_id=item, lesson_time='YES') + '\n\n'
         if group_list_next_week:
             for item in group_list_next_week:
-                if item in user['group_id']:
+                if str(item) in str(user['group_id']):
                     answer += f'Расписание на следующую неделю для группы {item} было изменено\n'
                     if user['lesson_time'] == 1:
                         answer += timetable(group_id=item, next='YES') + '\n\n'
@@ -217,7 +217,7 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
         if teacher_list_current_week:
             for item in teacher_list_current_week:
                 if user['teacher'] is not None:
-                    if item in user['teacher']:
+                    if str(item) in str(user['teacher']):
                         asyncio.run(
                             write_msg_vk_chat(message=f'Изменения в расписании на текущую неделю для преподавателя {item}',
                                            chat_id=user['vk_id']))
@@ -229,7 +229,7 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
         if teacher_list_next_week:
             for item in teacher_list_next_week:
                 if user['teacher'] is not None:
-                    if item in user['teacher']:
+                    if str(item) in str(user['teacher']):
                         asyncio.run(write_msg_vk_chat(
                             message=f'Изменения в расписании на следующую неделю для преподавателя {item}',
                             chat_id=user['vk_id']))
@@ -242,7 +242,7 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
         if group_list_current_week:
             for item in group_list_current_week:
                 if user['group_id'] is not None:
-                    if item in user['group_id']:
+                    if str(item) in str(user['group_id']):
                         asyncio.run(
                             write_msg_vk_chat(message=f'Изменения в расписании на текущую неделю для группы {item}',
                                            chat_id=user['vk_id']))
@@ -254,7 +254,7 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
         if group_list_next_week:
             for item in group_list_next_week:
                 if user['group_id'] is not None:
-                    if item in user['group_id']:
+                    if str(item) in str(user['group_id']):
                         asyncio.run(
                             write_msg_vk_chat(message=f'Изменения в расписании на следующую неделю для группы {item}',
                                            chat_id=user['vk_id']))
@@ -284,7 +284,7 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
         if teacher_list_current_week:
             for item in teacher_list_current_week:
                 if user['teacher'] is not None:
-                    if item in user['teacher']:
+                    if str(item) in str(user['teacher']):
                         asyncio.run(
                             write_msg_vk_user(message=f'Изменения в расписании на текущую неделю для преподавателя {item}',
                                            user_id=user['vk_id']))
@@ -296,7 +296,7 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
         if teacher_list_next_week:
             for item in teacher_list_next_week:
                 if user['teacher'] is not None:
-                    if item in user['teacher']:
+                    if str(item) in str(user['teacher']):
                         asyncio.run(write_msg_vk_user(
                             message=f'Изменения в расписании на следующую неделю для преподавателя {item}',
                             user_id=user['vk_id']))
@@ -309,7 +309,7 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
         if group_list_current_week:
             for item in group_list_current_week:
                 if user['group_id'] is not None:
-                    if item in user['group_id']:
+                    if str(item) in str(user['group_id']):
                         asyncio.run(
                             write_msg_vk_user(message=f'Изменения в расписании на текущую неделю для группы {item}',
                                            user_id=user['vk_id']))
@@ -321,7 +321,7 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
         if group_list_next_week:
             for item in group_list_next_week:
                 if user['group_id'] is not None:
-                    if item in user['group_id']:
+                    if str(item) in str(user['group_id']):
                         asyncio.run(
                             write_msg_vk_user(message=f'Изменения в расписании на следующую неделю для группы {item}',
                                            user_id=user['vk_id']))
@@ -351,7 +351,7 @@ def send_notifications_telegram(group_list_current_week: list, group_list_next_w
         if teacher_list_current_week:
             for item in teacher_list_current_week:
                 if user['teacher'] is not None:
-                    if item in user['teacher']:
+                    if str(item) in str(user['teacher']):
                         asyncio.run(write_msg_telegram(message=f'Изменения в расписании на текущую неделю для преподавателя {item}', tg_id=user['telegram_id']))
                         if user['lesson_time'] == 1:
                             asyncio.run(write_msg_telegram(
@@ -362,7 +362,7 @@ def send_notifications_telegram(group_list_current_week: list, group_list_next_w
         if teacher_list_next_week:
             for item in teacher_list_next_week:
                 if user['teacher'] is not None:
-                    if item in user['teacher']:
+                    if str(item) in str(user['teacher']):
                         asyncio.run(write_msg_telegram(
                             message=f'Изменения в расписании на следующую неделю для преподавателя {item}', tg_id=user['telegram_id']))
                         if user['lesson_time'] == 1:
@@ -374,7 +374,7 @@ def send_notifications_telegram(group_list_current_week: list, group_list_next_w
         if group_list_current_week:
             for item in group_list_current_week:
                 if user['group_id'] is not None:
-                    if item in user['group_id']:
+                    if str(item) in str(user['group_id']):
                         asyncio.run(write_msg_telegram(
                             message=f'Изменения в расписании на текущую неделю для группы {item}', tg_id=user['telegram_id']))
                         if user['lesson_time'] == 1:
@@ -386,7 +386,7 @@ def send_notifications_telegram(group_list_current_week: list, group_list_next_w
         if group_list_next_week:
             for item in group_list_next_week:
                 if user['group_id'] is not None:
-                    if item in user['group_id']:
+                    if str(item) in str(user['group_id']):
                         asyncio.run(write_msg_telegram(
                             message=f'Изменения в расписании на следующую неделю для группы {item}', tg_id=user['telegram_id']))
                         if user['lesson_time'] == 1:
@@ -2221,6 +2221,143 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
             return 'Нет сохраненных групп или преподавателей для отправки расписания'
     else:
         logger.error('Incorrect timetable request. Email, vk chat, vk user, telegram  and discord are undefined')
+        return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
+
+
+# Получение учебной нагрузки для пользователя
+def getting_workload_for_user(next: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None, discord: str = None):
+    # Обработка email
+    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None and discord is None):
+        logger.log('SQL', 'Incoming workload request for email = <' + email + '>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM email WHERE email = ?', (email,))
+        email_row = c.fetchone()
+        c.close()
+        conn.close()
+        if email_row:
+            teachers_answer = ''
+            if email_row['teacher'] is None:
+                logger.log('SQL', 'No saved teachers for email <' + email + '>')
+                return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+            if email_row['teacher'] is not None:
+                teachers = str(email_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
+                for i in teachers:
+                    teachers_answer += workload(teacher=str(i), next=next) + '\n'
+            logger.log('SQL', 'Response to workload request for email <' + email + '>')
+            return teachers_answer
+        else:
+            logger.log('SQL', 'No saved teachers for email <' + email + '>')
+            return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+    # Обработка vk chat
+    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None and discord is None):
+        logger.log('SQL', 'Incoming workload request for vk chat = <' + vk_id_chat + '>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,))
+        vk_chat_row = c.fetchone()
+        c.close()
+        conn.close()
+        if vk_chat_row is not None:
+            teachers_answer = ''
+            if vk_chat_row['teacher'] is None:
+                logger.log('SQL', 'No saved teachers for vk chat <' + vk_id_chat + '>')
+                return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+            if vk_chat_row['teacher'] is not None:
+                teachers = str(vk_chat_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
+                for i in teachers:
+                    teachers_answer += 'Cut\n' + workload(teacher=str(i), next=next) + '\n'
+            logger.log('SQL', 'Response to workload request for vk chat <' + vk_id_chat + '>')
+            return teachers_answer
+        else:
+            logger.log('SQL', 'No saved teachers for vk chat <' + vk_id_chat + '>')
+            return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+    # Обработка vk user
+    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None and discord is None):
+        logger.log('SQL', 'Incoming workload request for vk user = <' + vk_id_user + '>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,))
+        vk_user_row = c.fetchone()
+        c.close()
+        conn.close()
+        if vk_user_row is not None:
+            teachers_answer = ''
+            if vk_user_row['teacher'] is None:
+                logger.log('SQL', 'No saved teachers for vk user <' + vk_id_user + '>')
+                return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+            if vk_user_row['teacher'] is not None:
+                teachers = str(vk_user_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
+                for i in teachers:
+                    teachers_answer += 'Cut\n' + workload(teacher=str(i), next=next) + '\n'
+            logger.log('SQL', 'Response to workload request for vk user <' + vk_id_user + '>')
+            return teachers_answer
+        else:
+            logger.log('SQL', 'No saved teachers for vk user <' + vk_id_user + '>')
+            return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+    # Telegram
+    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None and discord is None):
+        logger.log('SQL', f'Incoming workload request for telegram = <{telegram}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,))
+        telegram_row = c.fetchone()
+        c.close()
+        conn.close()
+        if telegram_row is not None:
+            teachers_answer = ''
+            if telegram_row['teacher'] is None:
+                logger.log('SQL', f'No saved teachers for telegram <{telegram}>')
+                return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+            if telegram_row['teacher'] is not None:
+                teachers = str(telegram_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
+                for i in teachers:
+                    teachers_answer += 'Cut\n' + workload(teacher=str(i), next=next) + '\n'
+            logger.log('SQL', f'Response to workload request for telegram <{telegram}>')
+            return teachers_answer
+        else:
+            logger.log('SQL', f'No saved teachers for telegram <{telegram}>')
+            return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+    # Discord
+    elif discord is not None and (email is None and vk_id_chat is None and vk_id_user is None and telegram is None):
+        logger.log('SQL', f'Incoming workload request for discord = <{discord}>')
+        conn = connection_to_sql('user_settings.db')
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT * FROM discord WHERE discord_id = ?', (discord,))
+        discord_row = c.fetchone()
+        c.close()
+        conn.close()
+        if discord_row is not None:
+            teachers_answer = ''
+            if discord_row['teacher'] is None:
+                logger.log('SQL', f'No saved teachers for discord <{discord}>')
+                return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+            if discord_row['teacher'] is not None:
+                teachers = str(discord_row['teacher'])
+                teachers = teachers.replace('\r', '')
+                teachers = teachers.split('\n')
+                for i in teachers:
+                    teachers_answer += 'Cut\n' + workload(teacher=str(i), next=next) + '\n'
+            logger.log('SQL', f'Response to workload request for discord <{discord}>')
+            return teachers_answer
+        else:
+            logger.log('SQL', f'No saved teachers for discord <{discord}>')
+            return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+    else:
+        logger.error('Incorrect workload request. Email, vk chat, vk user, telegram  and discord are undefined')
         return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
 
 
