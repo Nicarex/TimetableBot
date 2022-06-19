@@ -63,8 +63,8 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
                 end_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:00", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
             elif str(elem['Les']) == '4':
                 now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:45", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:15", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
+                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:40", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
+                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:10", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
             elif str(elem['Les']) == '5':
                 now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
                 start_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:25", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
