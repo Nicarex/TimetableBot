@@ -155,7 +155,7 @@ async def user_timetable_next(message: Message):
 
 
 @bot.on.private_message(text="Учебная нагрузка на текущий месяц")
-async def user_work_load(message: Message):
+async def user_work_load_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     answer = str(getting_workload_for_user(vk_id_user=str(message.from_id))).split('Cut\n')
     for i in answer:
@@ -168,7 +168,7 @@ async def user_work_load(message: Message):
 
 
 @bot.on.private_message(text="Учебная нагрузка на следующий месяц")
-async def user_work_load(message: Message):
+async def user_work_load_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     answer = str(getting_workload_for_user(next='YES', vk_id_user=str(message.from_id))).split('Cut\n')
     for i in answer:
@@ -301,7 +301,7 @@ async def user_search_in_request(message: Message, groups_and_teachers: str):
 
 
 # Обработка сообщений из бесед
-@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая'])
+@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая', "[club199038911|@bot_agz] Текущая неделя", "[club199038911|@bot_agz] текущая неделя"])
 async def chat_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = str(getting_timetable_for_user(vk_id_chat=str(message.chat_id))).split('Cut\n')
@@ -314,7 +314,7 @@ async def chat_timetable_now(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая'])
+@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая', "[club199038911|@bot_agz] Следующая неделя", "[club199038911|@bot_agz] следующая неделя"])
 async def chat_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = str(getting_timetable_for_user(next='YES', vk_id_chat=str(message.chat_id))).split('Cut\n')
@@ -327,14 +327,14 @@ async def chat_timetable_next(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Начать", 'начать', '/начать', '/Начать'])
+@bot.on.chat_message(text=["Начать", 'начать', '/начать', '/Начать', '[club199038911|@bot_agz] Начать', '[club199038911|@bot_agz] начать'])
 async def chat_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer("Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=['Настройки', 'настройки', '/настройки', '/Настройки'])
+@bot.on.chat_message(text=['Настройки', 'настройки', '/настройки', '/Настройки', '[club199038911|@bot_agz] настройки', '[club199038911|@bot_agz] Настройки'])
 async def chat_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = display_saved_settings(vk_id_chat=str(message.chat_id))
@@ -342,14 +342,14 @@ async def chat_settings(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Календарь", 'календарь', '/календарь', '/Календарь'])
+@bot.on.chat_message(text=["Календарь", 'календарь', '/календарь', '/Календарь', '[club199038911|@bot_agz] календарь', '[club199038911|@bot_agz] Календарь'])
 async def chat_calendar_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.', keyboard=KEYBOARD_CHAT_CALENDAR)
     logger.log('VK', 'Response to message from vk user: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Да, я знаю, что делаю")
+@bot.on.chat_message(text=["Да, я знаю, что делаю", '[club199038911|@bot_agz] Да, я знаю, что делаю'])
 async def chat_calendar_response(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Запрос выполняется, пожалуйста, подождите...')
@@ -358,14 +358,14 @@ async def chat_calendar_response(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Настроить уведомления об изменениях")
+@bot.on.chat_message(text=["Настроить уведомления об изменениях", '[club199038911|@bot_agz] Настроить уведомления об изменениях'])
 async def chat_noti_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Выберите параметры:', keyboard=KEYBOARD_CHAT_NOTI)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Включить уведомления")
+@bot.on.chat_message(text=["Включить уведомления", '[club199038911|@bot_agz] Включить уведомления'])
 async def chat_noti_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_notifications(enable='YES', vk_id_chat=str(message.chat_id))
@@ -373,7 +373,7 @@ async def chat_noti_enable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Выключить уведомления")
+@bot.on.chat_message(text=["Выключить уведомления", '[club199038911|@bot_agz] Выключить уведомления'])
 async def chat_noti_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_notifications(disable='YES', vk_id_chat=str(message.chat_id))
@@ -381,14 +381,14 @@ async def chat_noti_disable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Настроить отображение времени занятий")
+@bot.on.chat_message(text=["Настроить отображение времени занятий", '[club199038911|@bot_agz] Настроить отображение времени занятий'])
 async def user_lesson_time_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Выберите параметры:', keyboard=KEYBOARD_CHAT_LESSON_TIME)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Включить отображение времени занятий")
+@bot.on.chat_message(text=["Включить отображение времени занятий", '[club199038911|@bot_agz] Включить отображение времени занятий'])
 async def user_lesson_time_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_lesson_time(enable='YES', vk_id_chat=str(message.chat_id))
@@ -396,7 +396,7 @@ async def user_lesson_time_enable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Выключить отображение времени занятий")
+@bot.on.chat_message(text=["Выключить отображение времени занятий", '[club199038911|@bot_agz] Выключить отображение времени занятий'])
 async def user_lesson_time_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_lesson_time(disable='YES', vk_id_chat=str(message.chat_id))
@@ -404,7 +404,7 @@ async def user_lesson_time_disable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Удалить параметры групп и преподавателей")
+@bot.on.chat_message(text=["Удалить параметры групп и преподавателей", '[club199038911|@bot_agz] Удалить параметры групп и преподавателей'])
 async def chat_delete_saved_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = delete_all_saved_groups_and_teachers(vk_id_chat=str(message.chat_id))
@@ -412,14 +412,14 @@ async def chat_delete_saved_settings(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Вернуться назад")
+@bot.on.chat_message(text=["Вернуться назад", '[club199038911|@bot_agz] Вернуться назад'])
 async def chat_back(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Хорошо', keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text="Об авторе")
+@bot.on.chat_message(text=["Об авторе", '[club199038911|@bot_agz] Об авторе'])
 async def chat_about_author(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_CHAT_SETTINGS)
@@ -442,7 +442,7 @@ async def chat_search_in_request(message: Message, groups_and_teachers: str):
 
 @bot.on.chat_message()
 async def ping(message: Message):
-    if str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1 or str(message.text).find('@все') != -1 or str(message.text).find('*все') != -1:
+    if (str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1 or str(message.text).find('@все') != -1 or str(message.text).find('*все') != -1) and str(message.text).find('[club199038911|@bot_agz]') == -1:
         return False
     answer = 'Выберите параметры'
     await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)

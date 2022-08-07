@@ -228,41 +228,38 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
 
 
 def download_calendar_file_to_github(filename: str):
+    logger.log('CALENDAR', f'Start upload calendar <{filename}> to GitHub')
     g = Github(github_token)
-    repo = g.get_repo("Nicarex/timetablebot-files")
-    all_files = []
-    contents = repo.get_contents("")
-    while contents:
-        file_content = contents.pop(0)
-        if file_content.type == "dir":
-            contents.extend(repo.get_contents(file_content.path))
-        else:
-            file = file_content
-            all_files.append(str(file).replace('ContentFile(path="', '').replace('")', ''))
+    try:
+        repo = g.get_repo("Nicarex/timetablebot-files")
+        all_files = []
+        contents = repo.get_contents("")
+        while contents:
+            file_content = contents.pop(0)
+            if file_content.type == "dir":
+                contents.extend(repo.get_contents(file_content.path))
+            else:
+                file = file_content
+                all_files.append(str(file).replace('ContentFile(path="', '').replace('")', ''))
 
-    filepath = f'calendars/{filename}.ics'
+        filepath = f'calendars/{filename}.ics'
 
-    with open(filepath, 'r', encoding='utf-8') as file:
-        content = file.read()
-    # Обновление файла в GitHub
-    if filepath in all_files:
-        contents = repo.get_contents(filepath)
-        try:
+        with open(filepath, 'r', encoding='utf-8') as file:
+            content = file.read()
+        # Обновление файла в GitHub
+        if filepath in all_files:
+            contents = repo.get_contents(filepath)
             repo.update_file(contents.path, "update", content, contents.sha, branch="main")
-        except:
-            logger.log('CALENDAR', f'Error happened while download calendar <{filename}> to GitHub. Wait 20 seconds')
-            time.sleep(20)
-        logger.log('CALENDAR', f'Calendar <{filename}> has been updated in GitHub')
-        return True
-    # Создание нового файла в GitHub
-    else:
-        try:
+            logger.log('CALENDAR', f'Calendar <{filename}> has been updated in GitHub')
+            return True
+        # Создание нового файла в GitHub
+        else:
             repo.create_file(filepath, "create", content, branch="main")
-        except:
-            logger.log('CALENDAR', f'Error happened while download calendar <{filename}> to GitHub. Wait 20 seconds')
-            time.sleep(20)
-        logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
-        return True
+            logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
+            return True
+    except:
+        logger.log('CALENDAR', f'Error happened while upload calendar <{filename}> to GitHub. Wait 20 seconds')
+        time.sleep(20)
 
 
 # Отправляет в ответ ссылку на календарь

@@ -11,6 +11,7 @@ import os
 list_with_days_of_week = ['ПОНЕДЕЛЬНИК - ', '\nВТОРНИК - ', '\nСРЕДА - ', '\nЧЕТВЕРГ - ', '\nПЯТНИЦА - ', '\nСУББОТА - ', '\nВОСКРЕСЕНЬЕ - ']
 list_with_lesson_time = ['', '09:00-10:30', '10:45-12:15', '12:30-14:00', '14:40-16:10', '16:25-17:55']
 dict_with_names_of_month = {'января': 'январь', 'февраля': 'февраль', 'марта': 'март', 'апреля': 'апрель', 'мая': 'май', 'июня': 'июнь', 'июля': 'июль', 'августа': 'август', 'сентября': 'сентябрь', 'октября': 'октябрь', 'ноября': 'ноябрь', 'декабря': 'декабрь'}
+dict_with_names_of_lessons = {'л': 'лекция', 'пз': 'практическое занятие', 'зао': 'зачет с оценкой', 'экз.': 'экзамен', 'српп': 'самостоятельная работа под руководством преподавателя', 'гк': 'групповая консультация', 'см': 'семинар', 'контр.р': 'контрольная работа', 'лр': 'лабораторная работа', 'курс.р': 'курсовая работа'}
 
 
 # Учебная нагрузка
@@ -25,17 +26,18 @@ def workload(teacher: str = None, next: str = None):
     # Текущий
     if next is None:
         first_day_of_month = dt.start_of('month')
-        last_day_of_month = dt.end_of('month')
     # Следующий
     else:
         dt_next_month = dt.add(months=1)
         first_day_of_month = dt_next_month.start_of('month')
-        last_day_of_month = dt_next_month.end_of('month')
     all_dates_of_month = [first_day_of_month.format('D-MM-YYYY')]
     next_day = first_day_of_month
     while True:
+        # next_day = второе число месяца при первом цикле
         next_day = next_day.add(days=1)
+        # если название месяца совпадает
         if next_day.format('MMMM') == first_day_of_month.format('MMMM'):
+            # Все дни месяца
             all_dates_of_month += [next_day.format('D-MM-YYYY')]
         else:
             break
@@ -44,20 +46,92 @@ def workload(teacher: str = None, next: str = None):
     c = conn.cursor()
     all_lessons_of_month = {}
     counter_of_all_lessons_in_month = 0
+    # перебираем каждый день месяца
+    last_row = None
     for day in all_dates_of_month:
-        timetable_on_day = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ?', (str(teacher), day)).fetchall()
+        timetable_on_day = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ? ORDER BY "Les"', (str(teacher), day)).fetchall()
+        # для каждой строчки в расписании на день
         for row in timetable_on_day:
-            counter_of_all_lessons_in_month += 1
-            if all_lessons_of_month.get(row['Subj_type']) is None:
-                all_lessons_of_month[row['Subj_type']] = 1
+            # Если строка до этого была
+            if last_row is not None:
+                # Если НЕ (номер предыдущей пары равен текущей и дата предыдущей пары равна текущей)
+                if not(last_row['Les'] == row['Les'] and last_row['Date'] == row['Date']):
+                    last_row = row
+                    if row['Subj_type'] == 'ГК' or row['Subj_type'] == 'Консультация' or row['Subj_type'] == 'Проверка':
+                        counter_of_all_lessons_in_month += 0.5
+                    else:
+                        counter_of_all_lessons_in_month += 1
+                    if all_lessons_of_month.get(row['Subj_type']) is None:
+                        all_lessons_of_month[row['Subj_type']] = 1
+                    else:
+                        all_lessons_of_month[row['Subj_type']] += 1
             else:
-                all_lessons_of_month[row['Subj_type']] += 1
-    answer = f"Преподаватель {str(teacher)}\nИтого за {str(dict_with_names_of_month.get(first_day_of_month.format('MMMM')))} - {str(counter_of_all_lessons_in_month*2)} ч. занятий"
+                last_row = row
+                if row['Subj_type'] == 'ГК' or row['Subj_type'] == 'Консультация' or row['Subj_type'] == 'Проверка':
+                    counter_of_all_lessons_in_month += 0.5
+                else:
+                    counter_of_all_lessons_in_month += 1
+                if all_lessons_of_month.get(row['Subj_type']) is None:
+                    all_lessons_of_month[row['Subj_type']] = 1
+                else:
+                    all_lessons_of_month[row['Subj_type']] += 1
+    c.close()
+    conn.close()
+    answer = f"Преподаватель {str(teacher)}\nИтого за {str(dict_with_names_of_month.get(first_day_of_month.format('MMMM')))} - {str(int(counter_of_all_lessons_in_month*2))} ч. занятий"
     if counter_of_all_lessons_in_month != 0:
         answer += f'\nТипы занятий:'
         for type_of_lesson in all_lessons_of_month:
             answer += f'\n{type_of_lesson} - {all_lessons_of_month[type_of_lesson]}'
     return answer
+
+
+# Вывод всех типов занятий из файла бд
+def show_all_types_of_lessons_in_db():
+    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    if db_timetable is None:
+        logger.error('Cant show timetable because no db-files in timetable-dbs directory')
+        return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
+    conn = connection_to_sql(db_timetable)
+    conn.row_factory = Row
+    c = conn.cursor()
+    all_lessons = {}
+    all_rows = c.execute('SELECT * FROM timetable').fetchall()
+    c.close()
+    conn.close()
+    for row in all_rows:
+        if all_lessons.get(row['Subj_type']) is None:
+            all_lessons[row['Subj_type']] = 1
+        else:
+            all_lessons[row['Subj_type']] += 1
+    answer = f'Типы занятий:'
+    for type_of_lesson in all_lessons:
+        answer += f'\n{type_of_lesson} - {all_lessons[type_of_lesson]}'
+    return answer
+
+
+def workload_for_cafedra(cafedra_id):
+    # Выбирается бд
+    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    if db_timetable is None:
+        logger.error('Cant show timetable because no db-files in timetable-dbs directory')
+        return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
+    # Текущее время
+    pendulum.set_locale('ru')
+    dt = pendulum.now(tz='Europe/Moscow')
+    conn = connection_to_sql(db_timetable)
+    conn.row_factory = Row
+    c = conn.cursor()
+    all_rows_in_file = c.execute('SELECT * FROM timetable').fetchall()
+    c.close()
+    conn.close()
+    list_with_all_teachers = []
+    for row in all_rows_in_file:
+        if row['Name'] != 'NN-препод.' and row['Name'] not in list_with_all_teachers and row['CafID'] == cafedra_id:
+            list_with_all_teachers += [row['Name']]
+    with open(f'{str(cafedra_id)}.txt', 'w', encoding='utf-8') as f:
+        for i in list_with_all_teachers:
+            f.write(f'{workload(teacher=i)}\n\n')
+    # print(f'Всего {len(list_with_all_teachers)} значений')
 
 
 # Находит и форматирует дату для поиска в базе данных
@@ -128,7 +202,9 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
 
     # Рассчитываем даты занятий
     # Текущее время
+    pendulum.set_locale('ru')
     dt = pendulum.now(tz='Europe/Moscow')
+    dates_of_mondays_in_month = []
     # Нужна неделя
     if month is None:
         first_day_of_current_week = dt.start_of('week')
@@ -145,14 +221,15 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
         # Если первый день месяца - воскресенье, то считаем, что первый день месяца - понедельник на следующей неделе
         if first_day_of_month == pendulum.SUNDAY:
             first_day_of_month = first_day_of_month.next(pendulum.MONDAY)
+        # Начало недели первого дня месяца
         start_of_week_on_first_day_of_month = first_day_of_month.start_of('week')
         # Даты всех понедельников месяца
-        dates_of_month = [start_of_week_on_first_day_of_month]
+        dates_of_mondays_in_month += [start_of_week_on_first_day_of_month]
         last_date = start_of_week_on_first_day_of_month
         while True:
             start_of_next_week_on_first_day_of_month = last_date.next(pendulum.MONDAY)
             if start_of_next_week_on_first_day_of_month.format('MMMM') == first_day_of_month.format('MMMM'):
-                dates_of_month += [start_of_next_week_on_first_day_of_month]
+                dates_of_mondays_in_month += [start_of_next_week_on_first_day_of_month]
                 last_date = start_of_next_week_on_first_day_of_month
             else:
                 break
@@ -160,6 +237,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     # Преподаватель
     if teacher is not None and group_id is None:
         # Поиск уже готового расписания в директории
+        path = 'NO-PATH.txt'
         if use_previous_timetable_db is None:
             # Не месяц
             if month is None:
@@ -240,7 +318,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                 # Название дня недели и дата
                 timetable_string += '\n' + list_with_days_of_week[day] + date_request(day_of_week=day, for_file='YES', next=next)
                 # Формирование строки для каждого занятия
-                for lesson in range(1,6):
+                for lesson in range(1, 6):
                     timetable_rows = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ? AND "Les" = ? ORDER BY "Group", "Subg"', (teacher, date_request(day_of_week=day, for_db='YES', next=next), lesson)).fetchall()
                     if not timetable_rows:
                         timetable_string += f"\n{str(lesson)}. -"
@@ -265,52 +343,46 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
             conn.close()
         # Расписание на месяц
         else:
-            # Проверка на наличие занятий на неделю
-            timetable_on_month = []
-            for week in dates_of_month:
-                for day in range(7):
-                    timetable_on_day = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ?', (str(teacher), date_request(day_of_week=day, for_db='YES', next=next))).fetchone()
-                    if timetable_on_day:
-                        timetable_on_month += [timetable_on_day]
-            if not timetable_on_month:
+            # Проверка на наличие занятий на месяц
+            timetable_for_month = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" LIKE ?', (str(teacher), first_day_of_month.format('[%]-MM-YYYY'))).fetchall()
+            if not timetable_for_month:
                 c.close()
                 conn.close()
-                return f'{timetable_string}\nНе найдено занятий на запрошенный период'
-            for day in range(7):
-                # Проверка на воскресенье
-                if day == 6:
-                    timetable_rows = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ?',(str(teacher), date_request(day_of_week=day, for_db='YES', next=next))).fetchone()
-                    if not timetable_rows:
-                        continue
-                # Название дня недели и дата
-                timetable_string += '\n' + list_with_days_of_week[day] + date_request(day_of_week=day, for_file='YES',
-                                                                                      next=next)
-                # Формирование строки для каждого занятия
-                for lesson in range(1, 6):
-                    timetable_rows = c.execute(
-                        'SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ? AND "Les" = ? ORDER BY "Group", "Subg"',
-                        (teacher, date_request(day_of_week=day, for_db='YES', next=next), lesson)).fetchall()
-                    if not timetable_rows:
-                        timetable_string += f"\n{str(lesson)}. -"
-                    else:
-                        row = timetable_rows[0]
-                        # Строка в зависимости от темы
-                        if row['Themas'] is not None:
-                            if lesson_time is None:
-                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                timetable_string += '\nНе найдено занятий на запрошенный период'
+            # Если занятия есть
+            else:
+                # Для каждого понедельника
+                for monday in dates_of_mondays_in_month:
+                    # Текущая дата для поиска в расписании = цифра из промежутка 0-5 добавляется к понедельнику
+                    for day in range(6):
+                        current_day = monday.add(days=day)
+                        # Название дня недели и дата
+                        timetable_string += f'\n\n{str(current_day.format("dddd")).upper()} - {current_day.format("DD.MM.YYYY")}'
+                        # Формирование строки для каждого занятия
+                        for lesson in range(1, 6):
+                            rows_in_day = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ? AND "Les" = ? ORDER BY "Group", "Subg"', (teacher, current_day.format('D-MM-YYYY'), lesson)).fetchall()
+                            if not rows_in_day:
+                                timetable_string += f"\n{str(lesson)}. -"
                             else:
-                                timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
-                        elif row['Themas'] is None:
-                            if lesson_time is None:
-                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
-                            else:
-                                timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
-                        # Обработка нескольких групп на одном занятии
-                        if len(timetable_rows) > 1:
-                            for i in range(1, len(timetable_rows)):
-                                timetable_string += f" {str(timetable_rows[i]['Group'])} гр."
-            c.close()
-            conn.close()
+                                row = rows_in_day[0]
+                                # Тема есть
+                                if row['Themas'] is not None:
+                                    if lesson_time is None:
+                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                    else:
+                                        timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                # Темы нет
+                                elif row['Themas'] is None:
+                                    if lesson_time is None:
+                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                    else:
+                                        timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                # Обработка нескольких групп на одном занятии
+                                if len(rows_in_day) > 1:
+                                    for i in range(1, len(rows_in_day)):
+                                        timetable_string += f" {str(rows_in_day[i]['Group'])} гр."
+                c.close()
+                conn.close()
         # Запись файла расписания
         if use_previous_timetable_db is None:
             with open(path, 'w', encoding='utf-8') as f:
@@ -321,6 +393,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     # Группа
     elif group_id is not None and teacher is None:
         # Поиск уже готового расписания в директории
+        path = 'NO-PATH.txt'
         if use_previous_timetable_db is None:
             if next is None:
                 if lesson_time is None:
@@ -387,18 +460,18 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     # Строка в зависимости от темы
                     if row['Themas'] is not None:
                         if lesson_time is None:
-                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])}'
+                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
                         else:
-                            timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])}'
+                            timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
                     elif row['Themas'] is None:
                         if lesson_time is None:
-                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])}'
+                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
                         else:
-                            timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])}'
+                            timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
                     # Обработка нескольких подгрупп на одном занятии
                     if len(timetable_rows) > 1:
                         for i in range(1, len(timetable_rows)):
-                            timetable_string += f"{str(timetable_rows[i]['Aud'])}"
+                            timetable_string += f"{str(timetable_rows[i]['Aud'])} {str(timetable_rows[i]['Name'])}"
         c.close()
         conn.close()
         # Запись файла расписания
@@ -413,6 +486,9 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
         return False
 
 
-# with logger.catch():
-    # timetable(group_id=None, teacher=None, month='YES', next=None, lesson_time=None)
-    # print(work_load(teacher='Уфимцева А.М.', next=None))
+with logger.catch():
+    # print(show_all_types_of_lessons_in_db())
+    # timetable(group_id='307', teacher=None, month=None, next=None, lesson_time=None)
+    # print(workload(teacher='Рубежная И.Н.', next=None))
+    # workload_for_cafedra(cafedra_id=73)
+    print(show_all_types_of_lessons_in_db())
