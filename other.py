@@ -126,6 +126,8 @@ def check_encoding_and_move_files(path: str, encoding: str):
 
 def connection_to_sql(name: str):
     try:
+        if name == "user_settings.db" or name == "calendars_list.db":
+            name=f'dbs/{name}'
         conn = sqlite3.connect(database=name, timeout=20)
         logger.log('SQL', 'Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:

@@ -69,7 +69,7 @@ async def write_msg_telegram(message: str, tg_id):
 
 # Создание пользовательской базы данных
 def create_db_user_settings():
-    path = 'user_settings.db'
+    path = 'dbs/user_settings.db'
     if Path(path).is_file():
         return True
     # Таблица для почты
@@ -127,7 +127,7 @@ def create_db_user_settings():
 
 # Создание базы данных календарей
 def create_db_calendars_list():
-    path = 'calendars_list.db'
+    path = 'dbs/calendars_list.db'
     # Если файл существует, то True
     if Path(path).is_file():
         return True

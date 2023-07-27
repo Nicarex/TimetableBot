@@ -23,13 +23,16 @@
 **/obj
 **/secrets.dev.yaml
 **/values.dev.yaml
+**/venv
+LICENSE
+README.md
+
+
 **/calendars
 **/downloads
 **/timetable-dbs
 **/log
 **/timetable-files
-LICENSE
-README.md
 
 config.ini
 calendars_list.db
