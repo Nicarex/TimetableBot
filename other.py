@@ -45,8 +45,6 @@ def create_required_dirs():
         os.makedirs('timetable-dbs', exist_ok=True)
     if not os.path.isdir('timetable-files'):
         os.makedirs('timetable-files', exist_ok=True)
-    if not os.path.isdir('excel-files'):
-        os.makedirs('excel-files', exist_ok=True)
     if not os.path.isdir('downloads'):
         os.makedirs('downloads', exist_ok=True)
     if not os.path.isdir('log'):
@@ -87,14 +85,16 @@ def get_latest_file(path: str):
 def check_encoding_and_move_files(path: str, encoding: str):
     # Проверка кодировки
     def check_encoding(file: str):
-        logger.log('FILES', f'Check encoding of file "{file}"...')
+        logger.log('OTHER', 'Check encoding of file <' + file + '>...')
         with open(file, 'rb') as f:
-            result_encoding = detect(f.read())
+            rawfile = f.read()
+        result_encoding = detect(rawfile)
         if result_encoding['encoding'] == encoding:
-            logger.log('FILES', f'Encoding of file "{file}"> is {str(result_encoding["encoding"])}')
+            logger.log('OTHER', 'Encoding of file <' + file + '> is ' + str(result_encoding['encoding']))
             return True
         else:
-            logger.error(f'Encoding of file "{file}" doesnt match with request! Encoding is {str(result_encoding["encoding"])}')
+            logger.error('Encoding of file <' + file + '> doest match with request! Encoding is ' + str(
+                result_encoding['encoding']))
             return False
     # Проверка на существование хоть одного файла .tmp
     # Если есть - проверка кодировки
@@ -114,47 +114,45 @@ def check_encoding_and_move_files(path: str, encoding: str):
     Удаляем оригинальные файлы и переименовываем полученные, возвращаем True
     """
     list_of_files_csv = glob(path + '/*.csv')
-    if list_of_files_csv:
-        for file in list_of_files_csv:
-            os.remove(file)
-        logger.log('FILES', 'All previous csv-files are deleted')
-    else:
-        logger.log('FILES', 'No previous csv-files')
+    for file in list_of_files_csv:
+        os.remove(file)
+    logger.log('OTHER', 'All previous csv-files are deleted')
     for file in list_of_files_tmp:
         p = Path(file)
         p.rename(p.with_suffix('.csv'))
-    logger.log('FILES', 'Tmp-files are renamed to csv')
+    logger.log('OTHER', 'Tmp-files are renamed to csv')
     return True
 
 
 def connection_to_sql(name: str):
     try:
         conn = sqlite3.connect(database=name, timeout=20)
-        logger.log('SQL', f'Successfully connect to sql db <{name}>')
+        logger.log('SQL', 'Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:
-        logger.error(f'Failed to read data from sql, error: {str(error)}')
+        logger.error('Failed to read data from sql, error: ' + str(error))
         return None
     return conn
 
 
 # Конвертирует CSV-файлы в SQL-файл
 def convert_to_sql(csv_files_directory: str):
-    logger.log('FILES', f'Convert csv-files in "{csv_files_directory}" directory to sql')
+    logger.log('OTHER', 'Request to convert csv to sql')
     # Текущая дата для filename
     date = pendulum.now(tz='Europe/Moscow').format('YYYY-MM-DD_HH-mm-ss')
     # Если есть хоть один файл, который заканчивается на csv
     list_of_files = glob(csv_files_directory + '/*.csv')
     if list_of_files:
-        # Создаем бд с расписанием
-        conn = connection_to_sql(name=f'timetable-dbs/timetable_{date}.db')
-        for csv_file in list_of_files:
-            logger.log('FILES', f'Convert "{str(csv_file)}" to timetable_{date}.db...')
-            timetable_csv = pandas.read_csv(csv_file, encoding='utf-8', sep=';')
-            timetable_csv.to_sql(name='timetable', con=conn, if_exists='append', index=False)
-            logger.log('FILES', f'File "{str(csv_file)}" successfully converted to timetable_{date}.db')
-        conn.commit()
-        conn.close()
-        return True
+        pass
     else:
-        logger.error(f'Cant convert to sql because no files exist in "{csv_files_directory}"')
+        logger.error('Cant convert to sql because no file exist in <' + csv_files_directory + '>')
         return False
+    conn = connection_to_sql(name='timetable-dbs/timetable_' + date + '.db')
+    for csv_file in list_of_files:
+        logger.log('OTHER', 'Convert <' + csv_file + '> to SQL...')
+        timetable_csv = pandas.read_csv(csv_file, encoding='utf-8', sep=';')
+        timetable_csv.to_sql(name='timetable', con=conn, if_exists='append', index=False)
+        logger.log('OTHER', 'File <' + csv_file + '> successfully converted to timetable_' + date + '.db')
+    conn.commit()
+    conn.close()
+    return True
+

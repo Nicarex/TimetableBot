@@ -5,6 +5,7 @@ from other import get_latest_file, connection_to_sql
 from glob import glob, iglob
 from sqlite3 import Row
 import os
+import re
 
 
 # Дни недели для файла расписания
@@ -238,6 +239,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     if teacher is not None and group_id is None:
         # Поиск уже готового расписания в директории
         path = 'NO-PATH.txt'
+        teacher_file = teacher.replace("/", "")
         if use_previous_timetable_db is None:
             # Не месяц
             if month is None:
@@ -245,32 +247,32 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                 if next is None:
                     # С отображением времени
                     if lesson_time is None:
-                        path = f'timetable-files/{str(teacher)}.txt'
+                        path = f'timetable-files/{str(teacher_file)}.txt'
                     # Без отображения времени
                     else:
-                        path = f'timetable-files/{str(teacher)}_without_time.txt'
+                        path = f'timetable-files/{str(teacher_file)}_without_time.txt'
                 # Следующая неделя
                 else:
                     if lesson_time is None:
-                        path = f'timetable-files/{str(teacher)}_next.txt'
+                        path = f'timetable-files/{str(teacher_file)}_next.txt'
                     else:
-                        path = f'timetable-files/{str(teacher)}_next_without_time.txt'
+                        path = f'timetable-files/{str(teacher_file)}_next_without_time.txt'
             # Расписание на месяц
             else:
                 # Текущий месяц
                 if next is None:
                     # С отображением времени
                     if lesson_time is None:
-                        path = f'timetable-files/{str(teacher)}_month.txt'
+                        path = f'timetable-files/{str(teacher_file)}_month.txt'
                     # Без отображения времени
                     else:
-                        path = f'timetable-files/{str(teacher)}_month_without_time.txt'
+                        path = f'timetable-files/{str(teacher_file)}_month_without_time.txt'
                 # Следующий месяц
                 else:
                     if lesson_time is None:
-                        path = f'timetable-files/{str(teacher)}_month_next.txt'
+                        path = f'timetable-files/{str(teacher_file)}_month_next.txt'
                     else:
-                        path = f'timetable-files/{str(teacher)}_month_next_without_time.txt'
+                        path = f'timetable-files/{str(teacher_file)}_month_next_without_time.txt'
             # Если файл с таким путем существует
             if glob(path):
                 # Чтение файла расписания
@@ -394,17 +396,18 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     elif group_id is not None and teacher is None:
         # Поиск уже готового расписания в директории
         path = 'NO-PATH.txt'
+        group_file = group_id.replace("/", "")
         if use_previous_timetable_db is None:
             if next is None:
                 if lesson_time is None:
-                    path = f'timetable-files/{str(group_id)}.txt'
+                    path = f'timetable-files/{str(group_file)}.txt'
                 else:
-                    path = f'timetable-files/{str(group_id)}_without_time.txt'
+                    path = f'timetable-files/{str(group_file)}_without_time.txt'
             else:
                 if lesson_time is None:
-                    path = f'timetable-files/{str(group_id)}_next.txt'
+                    path = f'timetable-files/{str(group_file)}_next.txt'
                 else:
-                    path = f'timetable-files/{str(group_id)}_next_without_time.txt'
+                    path = f'timetable-files/{str(group_file)}_next_without_time.txt'
             if glob(path):
                 # Чтение файла расписания
                 with open(path, 'r', encoding='utf-8') as f:
@@ -486,9 +489,9 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
         return False
 
 
-with logger.catch():
+# with logger.catch():
     # print(show_all_types_of_lessons_in_db())
     # timetable(group_id='307', teacher=None, month=None, next=None, lesson_time=None)
     # print(workload(teacher='Рубежная И.Н.', next=None))
     # workload_for_cafedra(cafedra_id=73)
-    print(show_all_types_of_lessons_in_db())
+    # print(show_all_types_of_lessons_in_db())

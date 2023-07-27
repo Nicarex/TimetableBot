@@ -442,7 +442,7 @@ async def chat_search_in_request(message: Message, groups_and_teachers: str):
 
 @bot.on.chat_message()
 async def ping(message: Message):
-    if (str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1 or str(message.text).find('@все') != -1 or str(message.text).find('*все') != -1) and str(message.text).find('[club199038911|@bot_agz]') == -1:
+    if str(message.text).find('@all') != -1 or str(message.text).find('*all') != -1 or str(message.text).find('@все') != -1 or str(message.text).find('*все') != -1:
         return False
     answer = 'Выберите параметры'
     await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)

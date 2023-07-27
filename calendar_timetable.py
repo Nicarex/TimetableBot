@@ -167,9 +167,9 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
                                                 tz=timezone).format('YYYYMMDDTHHmmss')
             elif str(elem['Les']) == '4':
                 now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:45", fmt='D-MM-YYYY HH:mm',
+                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:40", fmt='D-MM-YYYY HH:mm',
                                                   tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:15", fmt='D-MM-YYYY HH:mm',
+                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:10", fmt='D-MM-YYYY HH:mm',
                                                 tz=timezone).format('YYYYMMDDTHHmmss')
             elif str(elem['Les']) == '5':
                 now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
@@ -199,24 +199,25 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
             elif elem['Themas'] is None:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])}'
             auds_for_description = ''
+            teachers_for_description = ''
             # Обработка нескольких подгрупп для одной группы
             for i in range(1, 8):
                 # Если есть такой элемент в списке
                 if index + i < len(timetable_rows):
-                    if str(timetable_rows[index + i]['Date']) == str(elem['Date']) and str(
-                            timetable_rows[index + i]['Les']) == str(elem['Les']):
+                    if str(timetable_rows[index + i]['Date']) == str(elem['Date']) and str(timetable_rows[index + i]['Les']) == str(elem['Les']):
                         if str(timetable_rows[index + i]['Aud']) != str(elem['Aud']):
                             timetable_string += f"{str(timetable_rows[index + i]['Aud'])}"
                             auds_for_description += f"{str(timetable_rows[index + i]['Aud'])}"
+                            teachers_for_description += f" {str(timetable_rows[index + i]['Name'])}"
                         exclude_row += [timetable_rows[index + i]]
             # Добавление описания в событие
             event.add('summary', f'{timetable_string}')
             if elem['Themas'] is not None:
                 event.add('description',
-                          f'Тип занятия: {str(elem["Subj_type"])}\nТема: {str(elem["Themas"])}\nПредмет: {str(elem["Subject"])}\nАудитория:{str(elem["Aud"])}{str(auds_for_description)}')
+                          f'Тип занятия: {str(elem["Subj_type"])}\nТема: {str(elem["Themas"])}\nПредмет: {str(elem["Subject"])}\nАудитории:{str(elem["Aud"])}{str(auds_for_description)}\nПреподаватели: {str(elem["Name"])}{str(teachers_for_description)}')
             else:
                 event.add('description',
-                          f'Тип занятия: {str(elem["Subj_type"])}\nПредмет: {str(elem["Subject"])}\nАудитория:{str(elem["Aud"])}{str(auds_for_description)}')
+                          f'Тип занятия: {str(elem["Subj_type"])}\nПредмет: {str(elem["Subject"])}\nАудитории:{str(elem["Aud"])}{str(auds_for_description)}\nПреподаватели: {str(elem["Name"])}{str(teachers_for_description)}')
             cal.add_component(event)
         with open(f'calendars/{group_id}.ics', 'wb') as file:
             file.write(cal.to_ical())
@@ -422,5 +423,5 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
 
 
 # with logger.catch():
-#     create_calendar_file_with_timetable(teacher='')
+    # create_calendar_file_with_timetable(group_id='307')
 #     download_calendar_file_to_github(filename='')
