@@ -118,11 +118,14 @@ def processingMail():
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
             time.sleep(120)
+            continue
         except imaplib.IMAP4.error:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
             time.sleep(120)
+            continue
         except OSError:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
             time.sleep(120)
+            continue

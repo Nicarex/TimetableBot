@@ -55,15 +55,17 @@ def create_required_dirs():
 
 # Отправка почты через yagmail
 def sendMail(to_email, subject, text):
-    # Подключение к gmail
-    user_info = read_config(email='YES')
-    yag = yagmail.SMTP(user=user_info[1], password=user_info[2])
-    # Подпись, которая добавляется в конец каждого отправленного сообщения
-    signature = '\n\n\nСайт-инструкция: https://nicarex.github.io/timetablebot-site/'
-    # Непосредственно отправка письма
-    yag.send(to=to_email, subject=subject, contents=text + signature)
-    logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
-
+    try:
+        # Подключение к gmail
+        user_info = read_config(email='YES')
+        yag = yagmail.SMTP(user=user_info[1], password=user_info[2])
+        # Подпись, которая добавляется в конец каждого отправленного сообщения
+        signature = '\n\n\nСайт-инструкция: https://nicarex.github.io/timetablebot-site/'
+        # Непосредственно отправка письма
+        yag.send(to=to_email, subject=subject, contents=text + signature)
+        logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
+    except:
+        time.sleep(120)
 
 # Получает последний измененный файл
 def get_latest_file(path: str):

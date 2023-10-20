@@ -3,6 +3,7 @@ log/
 timetable-dbs/
 timetable-files/
 .idea/
+.venv/
 venv/
 calendars/
 config.ini
