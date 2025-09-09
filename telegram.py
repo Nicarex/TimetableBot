@@ -205,7 +205,7 @@ async def search_in_request(message: types.Message):
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
-@router.errors_handler(exception=TelegramForbiddenError)
+@dp.errors_handler(exception=TelegramForbiddenError)
 async def error_bot_blocked(update: types.Update, exception: TelegramForbiddenError):
     logger.log('TELEGRAM', f'Bot has been forbidden, message: {str(update)}')
     return True
