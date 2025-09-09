@@ -1,3 +1,5 @@
+# Игнорировать директорию pycache
+__pycache__/
 downloads/
 log/
 timetable-dbs/
