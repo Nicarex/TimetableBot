@@ -8,6 +8,7 @@ import pendulum
 import pandas
 import configparser
 import yagmail
+import time
 
 
 def read_config(email: str = None, vk: str = None, vk_send: str = None, github: str = None, telegram: str = None, discord: str = None):
@@ -65,6 +66,7 @@ def sendMail(to_email, subject, text):
         yag.send(to=to_email, subject=subject, contents=text + signature)
         logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
     except:
+        logger.log('MAIL', f'Cant send mail to {to_email}, wait 120 sec...')
         time.sleep(120)
 
 # Получает последний измененный файл
@@ -154,6 +156,13 @@ def convert_to_sql(csv_files_directory: str):
     for csv_file in list_of_files:
         logger.log('OTHER', 'Convert <' + csv_file + '> to SQL...')
         timetable_csv = pandas.read_csv(csv_file, encoding='utf-8', sep=';')
+        
+        # Удаление пробелов только из значений в колонке 'Group-Utf'
+        timetable_csv['Group-Utf'] = timetable_csv['Group-Utf'].str.replace(' ', '')
+        
+        # Замена значений, содержащих только пробелы, на None в колонке 'Name'
+        timetable_csv['Name'] = timetable_csv['Name'].replace(r'^\s*$', None, regex=True)        
+        
         timetable_csv.to_sql(name='timetable', con=conn, if_exists='append', index=False)
         logger.log('OTHER', 'File <' + csv_file + '> successfully converted to timetable_' + date + '.db')
     conn.commit()

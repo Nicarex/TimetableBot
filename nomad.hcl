@@ -34,7 +34,7 @@ job "timebot" {
             }
             
             resources {
-                memory = 600
+                memory = 2048
             }
 
             template {

@@ -475,3 +475,7 @@ def start_vk_server():
         wait_seconds_to_retry = random.randint(1, 10)
         logger.log('VK', f'VK server timeout, wait <{str(wait_seconds_to_retry)}> seconds to retry')
         time.sleep(wait_seconds_to_retry)
+    except:
+        logger.log('VK', 'Strange error... Continue')
+        wait_seconds_to_retry = random.randint(1, 10)
+        time.sleep(wait_seconds_to_retry)
