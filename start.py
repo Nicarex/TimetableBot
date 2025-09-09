@@ -9,26 +9,40 @@ from other import create_required_dirs
 
 if __name__ == '__main__':
     # Создание директорий
-    create_required_dirs()
-    # Запуск процессов
+    try:
+        create_required_dirs()
+        logger.info('Required directories created successfully')
+    except Exception as e:
+        logger.critical(f'Failed to create required directories: {e}')
+        exit(1)
+
+    # Сервисы для запуска
+    services = [
+        (processingMail, 'Mail service'),
+        (start_vk_server, 'VK service'),
+        (start_telegram_server, 'Telegram service'),
+        (start_discord_server, 'Discord service')
+    ]
     processes = []
     manager = Manager()
-    p1 = Process(target=processingMail)
-    p1.start()
-    processes.append(p1)
-    p2 = Process(target=start_vk_server)
-    p2.start()
-    processes.append(p2)
-    p3 = Process(target=start_telegram_server)
-    p3.start()
-    processes.append(p3)
-    p4 = Process(target=start_discord_server)
-    p4.start()
-    processes.append(p4)
+    for target, name in services:
+        try:
+            p = Process(target=target)
+            p.start()
+            processes.append(p)
+            logger.info(f'Started {name}')
+        except Exception as e:
+            logger.critical(f'Failed to start {name}: {e}')
+
     try:
-        for process in processes:
+        for process, (_, name) in zip(processes, services):
             process.join()
+            logger.info(f'{name} finished')
     except KeyboardInterrupt:
-        logger.warning('Catch Ctrl+C, stop processes...')
+        logger.warning('Catch Ctrl+C, stopping all processes...')
     finally:
-        logger.warning('Running processes has been stopped')
+        for process, (_, name) in zip(processes, services):
+            if process.is_alive():
+                process.terminate()
+                logger.info(f'{name} terminated')
+        logger.warning('All running processes have been stopped')

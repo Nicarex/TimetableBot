@@ -6,7 +6,7 @@ from glob import iglob
 from pathlib import Path
 
 from vkbottle import API
-from aiogram_broadcaster import TextBroadcaster
+from aiogram_broadcaster import Broadcaster
 
 from calendar_timetable import create_calendar_file_with_timetable, download_calendar_file_to_github
 from logger import logger
@@ -55,7 +55,7 @@ async def write_msg_vk_user(message: str, user_id: str):
 
 async def write_msg_telegram(message: str, tg_id):
     logger.log('SQL', f'Try to send message to telegram <{str(tg_id)}>')
-    broadcaster = TextBroadcaster(tg_id, '➡ ' + message, bot_token=tg_token)
+    broadcaster = Broadcaster(tg_id, '➡ ' + message, bot_token=tg_token)
     try:
         await broadcaster.run()
     except:
