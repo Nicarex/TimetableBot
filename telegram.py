@@ -205,7 +205,7 @@ async def search_in_request(message: types.Message):
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
-@dp.errors_handler(exception=TelegramForbiddenError)
+
 async def error_bot_blocked(update: types.Update, exception: TelegramForbiddenError):
     logger.log('TELEGRAM', f'Bot has been forbidden, message: {str(update)}')
     return True
@@ -221,6 +221,7 @@ def start_telegram_server():
         try:
             logger.log('TELEGRAM', 'Telegram server started...')
             dp.include_router(router)
+            dp.errors.register(error_bot_blocked)
             await dp.start_polling(bot)
         except KeyboardInterrupt:
             logger.log('TELEGRAM', 'Telegram server has been stopped by Ctrl+C')
