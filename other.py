@@ -157,6 +157,8 @@ def convert_to_sql(csv_files_directory: str):
         logger.log('OTHER', 'Convert <' + csv_file + '> to SQL...')
         timetable_csv = pandas.read_csv(csv_file, encoding='utf-8', sep=';')
         
+        timetable_csv['Group-Utf'] = timetable_csv['Group-Utf'].astype(str)
+
         # Удаление пробелов только из значений в колонке 'Group-Utf'
         timetable_csv['Group-Utf'] = timetable_csv['Group-Utf'].str.replace(' ', '')
         
