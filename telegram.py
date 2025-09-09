@@ -13,47 +13,51 @@ token = read_config(telegram='YES')
 bot = Bot(token=token)
 dp = Dispatcher()
 
-KEYBOARD_USER_MAIN = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons_user_main_1 = ['Текущая неделя', 'Следующая неделя']
-KEYBOARD_USER_MAIN.add(*buttons_user_main_1)
-buttons_user_main_2 = ['Календарь', 'Настройки']
-KEYBOARD_USER_MAIN.add(*buttons_user_main_2)
+KEYBOARD_USER_MAIN = types.ReplyKeyboardMarkup(
+    keyboard=[
+        [types.KeyboardButton(text='Текущая неделя'), types.KeyboardButton(text='Следующая неделя')],
+        [types.KeyboardButton(text='Календарь'), types.KeyboardButton(text='Настройки')]
+    ],
+    resize_keyboard=True
+)
 
-KEYBOARD_USER_SETTINGS = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons_user_settings = ['Инструкция', 'Об авторе', 'Настроить уведомления об изменениях', 'Настроить отображение времени занятий', 'Удалить параметры групп и преподавателей', 'Вернуться назад']
-KEYBOARD_USER_SETTINGS.add(buttons_user_settings[0], buttons_user_settings[1])
-KEYBOARD_USER_SETTINGS.row()
-KEYBOARD_USER_SETTINGS.add(buttons_user_settings[2])
-KEYBOARD_USER_SETTINGS.row()
-KEYBOARD_USER_SETTINGS.add(buttons_user_settings[3])
-KEYBOARD_USER_SETTINGS.row()
-KEYBOARD_USER_SETTINGS.add(buttons_user_settings[4])
-KEYBOARD_USER_SETTINGS.row()
-KEYBOARD_USER_SETTINGS.add(buttons_user_settings[5])
+KEYBOARD_USER_SETTINGS = types.ReplyKeyboardMarkup(
+    keyboard=[
+        [types.KeyboardButton(text='Инструкция'), types.KeyboardButton(text='Об авторе')],
+        [types.KeyboardButton(text='Настроить уведомления об изменениях')],
+        [types.KeyboardButton(text='Настроить отображение времени занятий')],
+        [types.KeyboardButton(text='Удалить параметры групп и преподавателей')],
+        [types.KeyboardButton(text='Вернуться назад')]
+    ],
+    resize_keyboard=True
+)
 
-KEYBOARD_USER_CALENDAR = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons_user_calendars = ['Да, я прочитал инструкцию', 'Инструкция', 'Вернуться назад']
-KEYBOARD_USER_CALENDAR.add(buttons_user_calendars[0])
-KEYBOARD_USER_CALENDAR.row()
-KEYBOARD_USER_CALENDAR.add(buttons_user_calendars[1])
-KEYBOARD_USER_CALENDAR.row()
-KEYBOARD_USER_CALENDAR.add(buttons_user_calendars[2])
+KEYBOARD_USER_CALENDAR = types.ReplyKeyboardMarkup(
+    keyboard=[
+        [types.KeyboardButton(text='Да, я прочитал инструкцию')],
+        [types.KeyboardButton(text='Инструкция')],
+        [types.KeyboardButton(text='Вернуться назад')]
+    ],
+    resize_keyboard=True
+)
 
-KEYBOARD_USER_NOTI = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons_user_noti = ['Включить уведомления', 'Выключить уведомления', 'Вернуться назад']
-KEYBOARD_USER_NOTI.add(buttons_user_noti[0])
-KEYBOARD_USER_NOTI.row()
-KEYBOARD_USER_NOTI.add(buttons_user_noti[1])
-KEYBOARD_USER_NOTI.row()
-KEYBOARD_USER_NOTI.add(buttons_user_noti[2])
+KEYBOARD_USER_NOTI = types.ReplyKeyboardMarkup(
+    keyboard=[
+        [types.KeyboardButton(text='Включить уведомления')],
+        [types.KeyboardButton(text='Выключить уведомления')],
+        [types.KeyboardButton(text='Вернуться назад')]
+    ],
+    resize_keyboard=True
+)
 
-KEYBOARD_USER_LESSON_TIME = types.ReplyKeyboardMarkup(resize_keyboard=True)
-buttons_user_lesson_time = ['Включить отображение времени занятий', 'Выключить отображение времени занятий', 'Вернуться назад']
-KEYBOARD_USER_LESSON_TIME.add(buttons_user_lesson_time[0])
-KEYBOARD_USER_LESSON_TIME.row()
-KEYBOARD_USER_LESSON_TIME.add(buttons_user_lesson_time[1])
-KEYBOARD_USER_LESSON_TIME.row()
-KEYBOARD_USER_LESSON_TIME.add(buttons_user_lesson_time[2])
+KEYBOARD_USER_LESSON_TIME = types.ReplyKeyboardMarkup(
+    keyboard=[
+        [types.KeyboardButton(text='Включить отображение времени занятий')],
+        [types.KeyboardButton(text='Выключить отображение времени занятий')],
+        [types.KeyboardButton(text='Вернуться назад')]
+    ],
+    resize_keyboard=True
+)
 
 
 @dp.message_handler(text=['/start', '/Start', '/Начать', '/начать', 'start', 'Start', 'Начать', 'начать'])
