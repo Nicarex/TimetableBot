@@ -1,5 +1,5 @@
 job "timebot" {
-    datacenters = ["timeweb-ru"]
+    datacenters = ["home"]
 
     group "timebot" {
         count = 1
@@ -21,7 +21,7 @@ job "timebot" {
                     target = "/app/config.ini"
                 }
 
-                image = "xnicare/timetablebot:latest"
+                image = "xnicare/timetablebot:1.0.5"
                 network_mode = "host"
                 volumes = [
                     "/opt/nomad/timebot/calendars:/app/calendars",
@@ -34,7 +34,7 @@ job "timebot" {
             }
             
             resources {
-                memory = 2048
+                memory = 6144
             }
 
             template {
