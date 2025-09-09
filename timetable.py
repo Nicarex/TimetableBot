@@ -186,7 +186,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     use_previous_timetable_db - использование предыдущей бд расписания (YES)
 
     При запросе расписания:
-    Выбирается файл бд, поиск уже готового расписания -> проверяется на актуальность \ создаем новое, записываем в файл, возвращаем -> возвращаем \ создаем новое, записываем в файл, возвращаем
+    Выбирается файл бд, поиск уже готового расписания -> проверяется на актуальность, создаем новое, записываем в файл, возвращаем -> возвращаем, создаем новое, записываем в файл, возвращаем
     """
     logger.log('TIMETABLE', f'Request to show timetable for teacher = "{str(teacher)}" or group = "{str(group_id)}", month = "{str(month)}", next = "{str(next)}", lesson_time = "{str(lesson_time)}"')
 

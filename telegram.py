@@ -11,7 +11,7 @@ import time
 
 token = read_config(telegram='YES')
 bot = Bot(token=token)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
 KEYBOARD_USER_MAIN = types.ReplyKeyboardMarkup(resize_keyboard=True)
 buttons_user_main_1 = ['Текущая неделя', 'Следующая неделя']
