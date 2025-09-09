@@ -1,7 +1,7 @@
-import aiogram.utils.exceptions
+import aiogram.exceptions
 import aiohttp.client_exceptions
-from aiogram import Bot, Dispatcher, executor, types
-from aiogram.utils.exceptions import BotBlocked
+from aiogram import Bot, Dispatcher, types
+from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
 from other import read_config
 from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
 from logger import logger
@@ -199,27 +199,32 @@ async def search_in_request(message: types.Message):
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
-@dp.errors_handler(exception=BotBlocked)
-async def error_bot_blocked(update: types.Update, exception: BotBlocked):
-    logger.log('TELEGRAM', f'Bot has been blocked, message: {str(update)}')
+@dp.errors_handler(exception=TelegramForbiddenError)
+async def error_bot_blocked(update: types.Update, exception: TelegramForbiddenError):
+    logger.log('TELEGRAM', f'Bot has been forbidden, message: {str(update)}')
     return True
 
 
-# Запуск сервера
+
+# Запуск сервера для aiogram 3.x
+import asyncio
+
 @logger.catch
 def start_telegram_server():
-    try:
-        logger.log('TELEGRAM', 'Telegram server started...')
-        executor.start_polling(dp, skip_updates=True)
-    except KeyboardInterrupt:
-        logger.log('TELEGRAM', 'Telegram server has been stopped by Ctrl+C')
-        return False
-    except aiohttp.client_exceptions.ClientConnectionError:
-        logger.log('TELEGRAM', 'Exception - ClientConnectionError, wait 10 sec...')
-        time.sleep(10)
-    except aiogram.utils.exceptions.NetworkError:
-        logger.log('TELEGRAM', 'Exception - NetworkError, wait 10 sec...')
-        time.sleep(10)
-    except socket.gaierror:
-        logger.log('TELEGRAM', 'Exception - SocketGaierror, wait 10 sec...')
-        time.sleep(10)
+    async def main():
+        try:
+            logger.log('TELEGRAM', 'Telegram server started...')
+            await dp.start_polling(bot)
+        except KeyboardInterrupt:
+            logger.log('TELEGRAM', 'Telegram server has been stopped by Ctrl+C')
+            return False
+        except aiohttp.client_exceptions.ClientConnectionError:
+            logger.log('TELEGRAM', 'Exception - ClientConnectionError, wait 10 sec...')
+            time.sleep(10)
+        except TelegramNetworkError:
+            logger.log('TELEGRAM', 'Exception - NetworkError, wait 10 sec...')
+            time.sleep(10)
+        except socket.gaierror:
+            logger.log('TELEGRAM', 'Exception - SocketGaierror, wait 10 sec...')
+            time.sleep(10)
+    asyncio.run(main())

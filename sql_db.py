@@ -74,55 +74,64 @@ def create_db_user_settings():
         return True
     # Таблица для почты
     conn = connection_to_sql(name=path)
-    c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS email(
-                email           TEXT,
-                group_id        TEXT,
-                teacher         TEXT,
-                notification    INTEGER,
-                lesson_time     INTEGER);
-                """)
-
-    # Таблица для ВК пользователей
-    conn.execute("""CREATE TABLE IF NOT EXISTS vk_user (
-                vk_id           TEXT,
-                group_id        TEXT,
-                teacher         TEXT,
-                notification    INTEGER,
-                lesson_time     INTEGER);
-                """)
-
-    # Таблица для ВК чатов
-    conn.execute("""CREATE TABLE IF NOT EXISTS vk_chat (
-                vk_id           TEXT,
-                group_id        TEXT,
-                teacher         TEXT,
-                notification    INTEGER,
-                lesson_time     INTEGER);
-                """)
-
-    # Таблица для telegram
-    conn.execute("""CREATE TABLE IF NOT EXISTS telegram (
-                telegram_id     TEXT,
-                group_id        TEXT,
-                teacher         TEXT,
-                notification    INTEGER,
-                lesson_time     INTEGER);
-                """)
-
-    # Таблица для discord
-    conn.execute("""CREATE TABLE IF NOT EXISTS discord (
-                    discord_id      TEXT,
+    if conn is None:
+        logger.error(f'Не удалось создать или открыть базу данных {path}. Проверьте наличие файла и права доступа.')
+        return False
+    try:
+        c = conn.cursor()
+        c.execute("""CREATE TABLE IF NOT EXISTS email(
+                    email           TEXT,
                     group_id        TEXT,
                     teacher         TEXT,
                     notification    INTEGER,
                     lesson_time     INTEGER);
                     """)
 
-    conn.commit()  # Сохранение изменений
-    c.close()
-    conn.close()  # Закрытие подключения
-    logger.log('SQL', 'User database has been created')
+        # Таблица для ВК пользователей
+        conn.execute("""CREATE TABLE IF NOT EXISTS vk_user (
+                    vk_id           TEXT,
+                    group_id        TEXT,
+                    teacher         TEXT,
+                    notification    INTEGER,
+                    lesson_time     INTEGER);
+                    """)
+
+        # Таблица для ВК чатов
+        conn.execute("""CREATE TABLE IF NOT EXISTS vk_chat (
+                    vk_id           TEXT,
+                    group_id        TEXT,
+                    teacher         TEXT,
+                    notification    INTEGER,
+                    lesson_time     INTEGER);
+                    """)
+
+        # Таблица для telegram
+        conn.execute("""CREATE TABLE IF NOT EXISTS telegram (
+                    telegram_id     TEXT,
+                    group_id        TEXT,
+                    teacher         TEXT,
+                    notification    INTEGER,
+                    lesson_time     INTEGER);
+                    """)
+
+        # Таблица для discord
+        conn.execute("""CREATE TABLE IF NOT EXISTS discord (
+                        discord_id      TEXT,
+                        group_id        TEXT,
+                        teacher         TEXT,
+                        notification    INTEGER,
+                        lesson_time     INTEGER);
+                        """)
+
+        conn.commit()  # Сохранение изменений
+        c.close()
+        conn.close()  # Закрытие подключения
+        logger.log('SQL', 'User database has been created')
+    except Exception as e:
+        logger.error(f'Ошибка при создании таблиц в базе данных {path}: {e}')
+        if conn:
+            conn.close()
+        return False
 
 
 # Создание базы данных календарей
@@ -132,16 +141,25 @@ def create_db_calendars_list():
     if Path(path).is_file():
         return True
     conn = connection_to_sql(name=path)
-    c = conn.cursor()
-    c.execute("""CREATE TABLE IF NOT EXISTS calendars(
-                group_id        TEXT,
-                teacher         TEXT,
-                calendar_url    TEXT);
-                """)
-    conn.commit()  # Сохранение изменений
-    c.close()
-    conn.close()  # Закрытие подключения
-    logger.log('SQL', 'Calendar database has been created')
+    if conn is None:
+        logger.error(f'Не удалось создать или открыть базу данных {path}. Проверьте наличие файла и права доступа.')
+        return False
+    try:
+        c = conn.cursor()
+        c.execute("""CREATE TABLE IF NOT EXISTS calendars(
+                    group_id        TEXT,
+                    teacher         TEXT,
+                    calendar_url    TEXT);
+                    """)
+        conn.commit()  # Сохранение изменений
+        c.close()
+        conn.close()  # Закрытие подключения
+        logger.log('SQL', 'Calendar database has been created')
+    except Exception as e:
+        logger.error(f'Ошибка при создании таблицы calendars в базе данных {path}: {e}')
+        if conn:
+            conn.close()
+        return False
 
 
 create_db_user_settings()
