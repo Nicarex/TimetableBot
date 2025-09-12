@@ -367,19 +367,21 @@ async def send_notifications_vk_user_async(group_list_current_week: list, group_
     return True
 
 def send_notifications_vk_user(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
-    try:
+
+    async def _run_in_executor():
         loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-    if loop and loop.is_running():
-        # Если уже есть запущенный event loop, используем await
-        # Вызовите send_notifications_vk_user_async из асинхронного кода!
-        raise RuntimeError('send_notifications_vk_user должен быть вызван через await send_notifications_vk_user_async(...) из асинхронного кода!')
+        from functools import partial
+        return await loop.run_in_executor(None, partial(send_notifications_vk_user, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week, _force_sync=True))
+
+    import inspect
+    frame = inspect.currentframe().f_back
+    is_async = frame and frame.f_code.co_flags & inspect.CO_COROUTINE
+    if is_async:
+        # Если вызывается из асинхронного контекста, запускаем в executor
+        return _run_in_executor()
     else:
         return asyncio.run(send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
-
-# Отправляет сообщение в Telegram о том, что расписание изменилось
 def send_notifications_telegram(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     """
     Берем по одному пользователю из бд, и смотрим, есть ли у него совпадение с кем-то из списков
@@ -537,8 +539,8 @@ def getting_the_difference_in_sql_files_and_sending_them():
     logger.log('SQL', 'Got the differences. Trying to send them to users')
     # if send_notifications_email(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
     #     logger.log('SQL', 'Successfully sent the differences by email')
-    if send_notifications_vk_chat(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
-        logger.log('SQL', 'Successfully sent the differences by vk_chat')
+    # if send_notifications_vk_chat(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
+    #     logger.log('SQL', 'Successfully sent the differences by vk_chat')
     if send_notifications_vk_user(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by vk_user')
     # if send_notifications_telegram(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
