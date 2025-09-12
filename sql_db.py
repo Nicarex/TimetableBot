@@ -245,6 +245,7 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
     c.close()
     conn.close()
 
+
     async def send_all_messages():
         tasks = []
         for user in vk_users:
@@ -284,7 +285,15 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
             await asyncio.gather(*tasks)
         return True
 
-    return asyncio.run(send_all_messages())
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        return loop.create_task(send_all_messages())
+    else:
+        return asyncio.run(send_all_messages())
 
 
 # Отправляет сообщение в ВК о том, что расписание изменилось
@@ -300,6 +309,7 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
     vk_users = c.execute('SELECT * FROM vk_user WHERE notification = 1').fetchall()
     c.close()
     conn.close()
+
 
     async def send_all_messages():
         tasks = []
@@ -340,7 +350,16 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
             await asyncio.gather(*tasks)
         return True
 
-    return asyncio.run(send_all_messages())
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        # Если уже есть запущенный event loop, используем create_task и await
+        return loop.create_task(send_all_messages())
+    else:
+        return asyncio.run(send_all_messages())
 
 
 # Отправляет сообщение в Telegram о том, что расписание изменилось
@@ -438,35 +457,35 @@ def getting_the_difference_in_sql_files_and_sending_them():
     if not difference:
         logger.log('SQL', 'No differences in timetables')
         return False
-    # Календарь
-    # Обновление расписания в календарях
-    list_with_teachers = []
-    list_with_groups = []
-    # Подключение к бд
-    conn = connection_to_sql(name='calendars_list.db')
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    for row in difference:
-        # Добавление в список, чтобы повторно не обрабатывать
-        if not str(row['Name']) in list_with_teachers:
-            list_with_teachers += [str(row['Name'])]
-            # Если календарь существует для этого преподавателя
-            calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row['Name']),)).fetchone()
-            if calendar_row:
-                if create_calendar_file_with_timetable(teacher=str(row['Name'])) is True:
-                    if download_calendar_file_to_github(filename=str(row['Name'])) is False:
-                        logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
-                    else:
-                        logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
-        if not str(row['Group-Utf']) in list_with_groups:
-            list_with_groups += [str(row['Group-Utf'])]
-            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row['Group-Utf']),)).fetchone()
-            if calendar_row:
-                if create_calendar_file_with_timetable(group_id=str(row['Group-Utf'])) is True:
-                    if download_calendar_file_to_github(filename=str(row['Group-Utf'])) is False:
-                        logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group-Utf"])}')
-                    else:
-                        logger.log('SQL', f'Calendar for group = "{str(row["Group-Utf"])}" has been successfully updated')
+    # # Календарь
+    # # Обновление расписания в календарях
+    # list_with_teachers = []
+    # list_with_groups = []
+    # # Подключение к бд
+    # conn = connection_to_sql(name='calendars_list.db')
+    # conn.row_factory = sqlite3.Row
+    # c = conn.cursor()
+    # for row in difference:
+    #     # Добавление в список, чтобы повторно не обрабатывать
+    #     if not str(row['Name']) in list_with_teachers:
+    #         list_with_teachers += [str(row['Name'])]
+    #         # Если календарь существует для этого преподавателя
+    #         calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row['Name']),)).fetchone()
+    #         if calendar_row:
+    #             if create_calendar_file_with_timetable(teacher=str(row['Name'])) is True:
+    #                 if download_calendar_file_to_github(filename=str(row['Name'])) is False:
+    #                     logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
+    #                 else:
+    #                     logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
+    #     if not str(row['Group-Utf']) in list_with_groups:
+    #         list_with_groups += [str(row['Group-Utf'])]
+    #         calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row['Group-Utf']),)).fetchone()
+    #         if calendar_row:
+    #             if create_calendar_file_with_timetable(group_id=str(row['Group-Utf'])) is True:
+    #                 if download_calendar_file_to_github(filename=str(row['Group-Utf'])) is False:
+    #                     logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group-Utf"])}')
+    #                 else:
+    #                     logger.log('SQL', f'Calendar for group = "{str(row["Group-Utf"])}" has been successfully updated')
     # Отправка разницы в ВК и почту
     # Создание списков с датами на текущую и следующую недели для дальнейшего фильтра бд по ним
     dates_current_week = []
