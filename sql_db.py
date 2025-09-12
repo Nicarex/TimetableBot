@@ -40,31 +40,40 @@ async def write_msg_vk_chat(message: str, chat_id: str):
 
 
 async def write_msg_vk_user(message: str, user_id: str):
+    import random
     logger.log('SQL', f'Try to send message to vk user <{str(user_id)}>')
     api = API(vk_token)
     try:
         user_id = int(user_id)
-        await api.messages.send(message='➡ ' + message, peer_id=user_id, random_id=0)
-        logger.log('SQL', f'Message have been sent to vk user <{str(user_id)}>')
+        result = await api.messages.send(
+            message='➡ ' + message,
+            peer_id=user_id,
+            random_id=random.randint(1, 2**31 - 1)
+        )
+        logger.log('SQL', f'Message have been sent to vk user <{str(user_id)}>, result: {result}')
         await asyncio.sleep(.25)
         return True
-    except:
-        logger.log('SQL', f'Error happened while sending message to vk user <{str(user_id)}>')
+    except Exception as e:
+        logger.log('SQL', f'Error happened while sending message to vk user <{str(user_id)}>: {e}')
         return False
 
 
 async def write_msg_telegram(message: str, tg_id):
     logger.log('SQL', f'Try to send message to telegram <{str(tg_id)}>')
-    broadcaster = Broadcaster(tg_id, '➡ ' + message, bot_token=tg_token)
+    from aiogram import Bot
+    from aiogram_broadcaster import Broadcaster
+    from aiogram_broadcaster.contents import TextContent
     try:
-        await broadcaster.run()
-    except:
-        logger.log('SQL', f'Error happened while sending message to telegram <{str(tg_id)}>')
+        bot = Bot(token=tg_token)
+        broadcaster = Broadcaster(bot)
+        content = TextContent(text='➡ ' + message)
+        mailer = await broadcaster.create_mailer(chats=[tg_id], content=content)
+        mailer.start()
+    except Exception as e:
+        logger.log('SQL', f'Error happened while sending message to telegram <{str(tg_id)}>: {e}')
         return False
-    finally:
-        logger.log('SQL', f'Message have been sent to telegram <{str(tg_id)}>)')
-        await broadcaster.close_bot()
-        return True
+    logger.log('SQL', f'Message have been sent to telegram <{str(tg_id)}>)')
+    return True
 
 
 # Создание пользовательской базы данных
