@@ -246,54 +246,63 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
     conn.close()
 
 
-    async def send_all_messages():
-        tasks = []
-        for user in vk_users:
-            if teacher_list_current_week:
-                for item in teacher_list_current_week:
-                    if user['teacher'] is not None and str(item) in str(user['teacher']):
-                        tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на текущую неделю для преподавателя {item}', chat_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_chat(message=timetable(teacher=item), chat_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_chat(message=timetable(teacher=item, lesson_time='YES'), chat_id=user['vk_id']))
-            if teacher_list_next_week:
-                for item in teacher_list_next_week:
-                    if user['teacher'] is not None and str(item) in str(user['teacher']):
-                        tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на следующую неделю для преподавателя {item}', chat_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_chat(message=timetable(teacher=item, next='YES'), chat_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_chat(message=timetable(teacher=item, lesson_time='YES', next='YES'), chat_id=user['vk_id']))
-            if group_list_current_week:
-                for item in group_list_current_week:
-                    if user['group_id'] is not None and str(item) in str(user['group_id']):
-                        tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на текущую неделю для группы {item}', chat_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_chat(message=timetable(group_id=item), chat_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_chat(message=timetable(group_id=item, lesson_time='YES'), chat_id=user['vk_id']))
-            if group_list_next_week:
-                for item in group_list_next_week:
-                    if user['group_id'] is not None and str(item) in str(user['group_id']):
-                        tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на следующую неделю для группы {item}', chat_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_chat(message=timetable(group_id=item, next='YES'), chat_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_chat(message=timetable(group_id=item, lesson_time='YES', next='YES'), chat_id=user['vk_id']))
-        if tasks:
-            await asyncio.gather(*tasks)
-        return True
 
+async def send_notifications_vk_chat_async(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
+    conn = connection_to_sql('user_settings.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    vk_users = c.execute('SELECT * FROM vk_chat WHERE notification = 1').fetchall()
+    c.close()
+    conn.close()
+    tasks = []
+    for user in vk_users:
+        if teacher_list_current_week:
+            for item in teacher_list_current_week:
+                if user['teacher'] is not None and str(item) in str(user['teacher']):
+                    tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на текущую неделю для преподавателя {item}', chat_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_chat(message=timetable(teacher=item), chat_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_chat(message=timetable(teacher=item, lesson_time='YES'), chat_id=user['vk_id']))
+        if teacher_list_next_week:
+            for item in teacher_list_next_week:
+                if user['teacher'] is not None and str(item) in str(user['teacher']):
+                    tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на следующую неделю для преподавателя {item}', chat_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_chat(message=timetable(teacher=item, next='YES'), chat_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_chat(message=timetable(teacher=item, lesson_time='YES', next='YES'), chat_id=user['vk_id']))
+        if group_list_current_week:
+            for item in group_list_current_week:
+                if user['group_id'] is not None and str(item) in str(user['group_id']):
+                    tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на текущую неделю для группы {item}', chat_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_chat(message=timetable(group_id=item), chat_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_chat(message=timetable(group_id=item, lesson_time='YES'), chat_id=user['vk_id']))
+        if group_list_next_week:
+            for item in group_list_next_week:
+                if user['group_id'] is not None and str(item) in str(user['group_id']):
+                    tasks.append(write_msg_vk_chat(message=f'Изменения в расписании на следующую неделю для группы {item}', chat_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_chat(message=timetable(group_id=item, next='YES'), chat_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_chat(message=timetable(group_id=item, lesson_time='YES', next='YES'), chat_id=user['vk_id']))
+    if tasks:
+        await asyncio.gather(*tasks)
+    return True
+
+def send_notifications_vk_chat(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
-
     if loop and loop.is_running():
-        return loop.create_task(send_all_messages())
+        # Если уже есть запущенный event loop, используем await
+        # Вызовите send_notifications_vk_chat_async из асинхронного кода!
+        raise RuntimeError('send_notifications_vk_chat должен быть вызван через await send_notifications_vk_chat_async(...) из асинхронного кода!')
     else:
-        return asyncio.run(send_all_messages())
+        return asyncio.run(send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
 
 # Отправляет сообщение в ВК о том, что расписание изменилось
@@ -311,55 +320,63 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
     conn.close()
 
 
-    async def send_all_messages():
-        tasks = []
-        for user in vk_users:
-            if teacher_list_current_week:
-                for item in teacher_list_current_week:
-                    if user['teacher'] is not None and str(item) in str(user['teacher']):
-                        tasks.append(write_msg_vk_user(message=f'Изменения в расписании на текущую неделю для преподавателя {item}', user_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_user(message=timetable(teacher=item), user_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_user(message=timetable(teacher=item, lesson_time='YES'), user_id=user['vk_id']))
-            if teacher_list_next_week:
-                for item in teacher_list_next_week:
-                    if user['teacher'] is not None and str(item) in str(user['teacher']):
-                        tasks.append(write_msg_vk_user(message=f'Изменения в расписании на следующую неделю для преподавателя {item}', user_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_user(message=timetable(teacher=item, next='YES'), user_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_user(message=timetable(teacher=item, lesson_time='YES', next='YES'), user_id=user['vk_id']))
-            if group_list_current_week:
-                for item in group_list_current_week:
-                    if user['group_id'] is not None and str(item) in str(user['group_id']):
-                        tasks.append(write_msg_vk_user(message=f'Изменения в расписании на текущую неделю для группы {item}', user_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_user(message=timetable(group_id=item), user_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_user(message=timetable(group_id=item, lesson_time='YES'), user_id=user['vk_id']))
-            if group_list_next_week:
-                for item in group_list_next_week:
-                    if user['group_id'] is not None and str(item) in str(user['group_id']):
-                        tasks.append(write_msg_vk_user(message=f'Изменения в расписании на следующую неделю для группы {item}', user_id=user['vk_id']))
-                        if user['lesson_time'] == 1:
-                            tasks.append(write_msg_vk_user(message=timetable(group_id=item, next='YES'), user_id=user['vk_id']))
-                        else:
-                            tasks.append(write_msg_vk_user(message=timetable(group_id=item, lesson_time='YES', next='YES'), user_id=user['vk_id']))
-        if tasks:
-            await asyncio.gather(*tasks)
-        return True
 
+async def send_notifications_vk_user_async(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
+    conn = connection_to_sql('user_settings.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    vk_users = c.execute('SELECT * FROM vk_user WHERE notification = 1').fetchall()
+    c.close()
+    conn.close()
+    tasks = []
+    for user in vk_users:
+        if teacher_list_current_week:
+            for item in teacher_list_current_week:
+                if user['teacher'] is not None and str(item) in str(user['teacher']):
+                    tasks.append(write_msg_vk_user(message=f'Изменения в расписании на текущую неделю для преподавателя {item}', user_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_user(message=timetable(teacher=item), user_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_user(message=timetable(teacher=item, lesson_time='YES'), user_id=user['vk_id']))
+        if teacher_list_next_week:
+            for item in teacher_list_next_week:
+                if user['teacher'] is not None and str(item) in str(user['teacher']):
+                    tasks.append(write_msg_vk_user(message=f'Изменения в расписании на следующую неделю для преподавателя {item}', user_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_user(message=timetable(teacher=item, next='YES'), user_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_user(message=timetable(teacher=item, lesson_time='YES', next='YES'), user_id=user['vk_id']))
+        if group_list_current_week:
+            for item in group_list_current_week:
+                if user['group_id'] is not None and str(item) in str(user['group_id']):
+                    tasks.append(write_msg_vk_user(message=f'Изменения в расписании на текущую неделю для группы {item}', user_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_user(message=timetable(group_id=item), user_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_user(message=timetable(group_id=item, lesson_time='YES'), user_id=user['vk_id']))
+        if group_list_next_week:
+            for item in group_list_next_week:
+                if user['group_id'] is not None and str(item) in str(user['group_id']):
+                    tasks.append(write_msg_vk_user(message=f'Изменения в расписании на следующую неделю для группы {item}', user_id=user['vk_id']))
+                    if user['lesson_time'] == 1:
+                        tasks.append(write_msg_vk_user(message=timetable(group_id=item, next='YES'), user_id=user['vk_id']))
+                    else:
+                        tasks.append(write_msg_vk_user(message=timetable(group_id=item, lesson_time='YES', next='YES'), user_id=user['vk_id']))
+    if tasks:
+        await asyncio.gather(*tasks)
+    return True
+
+def send_notifications_vk_user(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = None
-
     if loop and loop.is_running():
-        # Если уже есть запущенный event loop, используем create_task и await
-        return loop.create_task(send_all_messages())
+        # Если уже есть запущенный event loop, используем await
+        # Вызовите send_notifications_vk_user_async из асинхронного кода!
+        raise RuntimeError('send_notifications_vk_user должен быть вызван через await send_notifications_vk_user_async(...) из асинхронного кода!')
     else:
-        return asyncio.run(send_all_messages())
+        return asyncio.run(send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
 
 # Отправляет сообщение в Telegram о том, что расписание изменилось
