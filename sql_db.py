@@ -499,14 +499,14 @@ def getting_the_difference_in_sql_files_and_sending_them():
                 if str(timetable(group_id=str(row['Group-Utf']), next='YES')) != str(timetable(group_id=str(row['Group-Utf']), next='YES', use_previous_timetable_db='YES')):
                     group_list_next_week += [str(row['Group-Utf'])]
     logger.log('SQL', 'Got the differences. Trying to send them to users')
-    if send_notifications_email(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
-        logger.log('SQL', 'Successfully sent the differences by email')
+    # if send_notifications_email(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
+    #     logger.log('SQL', 'Successfully sent the differences by email')
     if send_notifications_vk_chat(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by vk_chat')
     if send_notifications_vk_user(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by vk_user')
-    if send_notifications_telegram(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
-        logger.log('SQL', 'Successfully sent the difference by telegram')
+    # if send_notifications_telegram(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
+    #     logger.log('SQL', 'Successfully sent the difference by telegram')
 
 
 # Поиск групп и преподавателей в запросе, и добавление их в пользовательскую бд
