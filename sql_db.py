@@ -25,18 +25,22 @@ if platform.system() == 'Windows':
 
 
 async def write_msg_vk_chat(message: str, chat_id: str):
+    import random
     logger.log('SQL', f'Try to send message to vk chat <{str(chat_id)}>')
     api = API(vk_token)
     try:
         chat_id = int(chat_id)
-        await api.messages.send(message='➡ ' + message, chat_id=chat_id, random_id=0)
+        result = await api.messages.send(
+            message='➡ ' + message,
+            chat_id=chat_id,
+            random_id=random.randint(1, 2**31 - 1)
+        )
+        logger.log('SQL', f'Message have been sent to vk chat <{str(chat_id)}>, result: {result}')
         await asyncio.sleep(.25)
-    except:
-        logger.log('SQL', f'Error happened while sending message to vk chat <{str(chat_id)}>')
-        return False
-    finally:
-        logger.log('SQL', f'Message have been sent to vk chat <{str(chat_id)}>')
         return True
+    except Exception as e:
+        logger.log('SQL', f'Error happened while sending message to vk chat <{str(chat_id)}>: {e}')
+        return False
 
 
 async def write_msg_vk_user(message: str, user_id: str):
