@@ -289,7 +289,12 @@ async def send_notifications_vk_chat_async(group_list_current_week: list, group_
                     else:
                         messages.append((timetable(group_id=item, lesson_time='YES', next='YES'), user['vk_id']))
         for msg, vk_id in messages:
-            await send_notifications_vk_chat([msg], [], [], [])
+            logger.log('SQL', f'Попытка отправки сообщения в VK чат: vk_id={vk_id}, текст="{msg}"')
+            try:
+                result = await write_msg_vk_chat(msg, vk_id)
+                logger.log('SQL', f'Результат отправки VK чату vk_id={vk_id}: {result}')
+            except Exception as e:
+                logger.log('SQL', f'Ошибка при отправке VK чату vk_id={vk_id}: {e}')
             await asyncio.sleep(0.4)
     return True
 
@@ -347,9 +352,13 @@ async def send_notifications_vk_user_async(group_list_current_week: list, group_
                         messages.append((timetable(group_id=item, next='YES'), user['vk_id']))
                     else:
                         messages.append((timetable(group_id=item, lesson_time='YES', next='YES'), user['vk_id']))
-        # Отправляем сообщения с задержкой между каждым
         for msg, vk_id in messages:
-            await send_notifications_vk_user([msg], [], [], [])
+            logger.log('SQL', f'Попытка отправки сообщения VK пользователю: vk_id={vk_id}, текст="{msg}"')
+            try:
+                result = await write_msg_vk_user(msg, vk_id)
+                logger.log('SQL', f'Результат отправки VK пользователю vk_id={vk_id}: {result}')
+            except Exception as e:
+                logger.log('SQL', f'Ошибка при отправке VK пользователю vk_id={vk_id}: {e}')
             await asyncio.sleep(0.4)  # задержка между сообщениями (400 мс)
     return True
 
