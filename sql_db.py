@@ -288,21 +288,21 @@ async def send_notifications_vk_chat_async(group_list_current_week: list, group_
                         messages.append((timetable(group_id=item, next='YES'), user['vk_id']))
                     else:
                         messages.append((timetable(group_id=item, lesson_time='YES', next='YES'), user['vk_id']))
-        # Отправляем сообщения с задержкой между каждым
         for msg, vk_id in messages:
-            await write_msg_vk_chat(message=msg, chat_id=vk_id)
-            await asyncio.sleep(0.4)  # задержка между сообщениями (400 мс)
+            await send_notifications_vk_chat([msg], [], [], [], _force_sync=True)
+            await asyncio.sleep(0.4)
     return True
 
 def send_notifications_vk_chat(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
-    try:
+    async def _run_in_executor():
         loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None
-    if loop and loop.is_running():
-        # Если уже есть запущенный event loop, используем await
-        # Вызовите send_notifications_vk_chat_async из асинхронного кода!
-        raise RuntimeError('send_notifications_vk_chat должен быть вызван через await send_notifications_vk_chat_async(...) из асинхронного кода!')
+        from functools import partial
+        return await loop.run_in_executor(None, partial(send_notifications_vk_chat, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week, _force_sync=True))
+    import inspect
+    frame = inspect.currentframe().f_back
+    is_async = frame and frame.f_code.co_flags & inspect.CO_COROUTINE
+    if is_async:
+        return _run_in_executor()
     else:
         return asyncio.run(send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
@@ -349,7 +349,7 @@ async def send_notifications_vk_user_async(group_list_current_week: list, group_
                         messages.append((timetable(group_id=item, lesson_time='YES', next='YES'), user['vk_id']))
         # Отправляем сообщения с задержкой между каждым
         for msg, vk_id in messages:
-            await write_msg_vk_user(message=msg, user_id=vk_id)
+            await send_notifications_vk_user([msg], [], [], [], _force_sync=True)
             await asyncio.sleep(0.4)  # задержка между сообщениями (400 мс)
     return True
 
