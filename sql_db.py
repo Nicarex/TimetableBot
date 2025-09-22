@@ -299,17 +299,27 @@ async def send_notifications_vk_chat_async(group_list_current_week: list, group_
     return True
 
 def send_notifications_vk_chat(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
-    async def _run_in_executor():
-        loop = asyncio.get_running_loop()
-        from functools import partial
-        return await loop.run_in_executor(None, partial(send_notifications_vk_chat, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
     import inspect
     frame = inspect.currentframe().f_back
     is_async = frame and frame.f_code.co_flags & inspect.CO_COROUTINE
     if is_async:
-        return _run_in_executor()
+        # В асинхронном контексте просто await
+        return send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week)
     else:
-        return asyncio.run(send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # Если цикл уже запущен, используем run_coroutine_threadsafe
+                fut = asyncio.run_coroutine_threadsafe(
+                    send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week), loop)
+                return fut.result()
+            else:
+                return loop.run_until_complete(
+                    send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
+        except RuntimeError:
+            # Если нет активного цикла, создаём новый
+            return asyncio.run(
+                send_notifications_vk_chat_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
 async def send_notifications_vk_user_async(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     conn = connection_to_sql('user_settings.db')
@@ -364,19 +374,25 @@ async def send_notifications_vk_user_async(group_list_current_week: list, group_
 
 def send_notifications_vk_user(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
 
-    async def _run_in_executor():
-        loop = asyncio.get_running_loop()
-        from functools import partial
-        return await loop.run_in_executor(None, partial(send_notifications_vk_user, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
-
     import inspect
     frame = inspect.currentframe().f_back
     is_async = frame and frame.f_code.co_flags & inspect.CO_COROUTINE
     if is_async:
-        # Если вызывается из асинхронного контекста, запускаем в executor
-        return _run_in_executor()
+        # В асинхронном контексте просто await
+        return send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week)
     else:
-        return asyncio.run(send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                fut = asyncio.run_coroutine_threadsafe(
+                    send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week), loop)
+                return fut.result()
+            else:
+                return loop.run_until_complete(
+                    send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
+        except RuntimeError:
+            return asyncio.run(
+                send_notifications_vk_user_async(group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
 def send_notifications_telegram(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     """
