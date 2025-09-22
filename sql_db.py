@@ -289,7 +289,7 @@ async def send_notifications_vk_chat_async(group_list_current_week: list, group_
                     else:
                         messages.append((timetable(group_id=item, lesson_time='YES', next='YES'), user['vk_id']))
         for msg, vk_id in messages:
-            await send_notifications_vk_chat([msg], [], [], [], _force_sync=True)
+            await send_notifications_vk_chat([msg], [], [], [])
             await asyncio.sleep(0.4)
     return True
 
@@ -297,7 +297,7 @@ def send_notifications_vk_chat(group_list_current_week: list, group_list_next_we
     async def _run_in_executor():
         loop = asyncio.get_running_loop()
         from functools import partial
-        return await loop.run_in_executor(None, partial(send_notifications_vk_chat, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week, _force_sync=True))
+        return await loop.run_in_executor(None, partial(send_notifications_vk_chat, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
     import inspect
     frame = inspect.currentframe().f_back
     is_async = frame and frame.f_code.co_flags & inspect.CO_COROUTINE
@@ -349,7 +349,7 @@ async def send_notifications_vk_user_async(group_list_current_week: list, group_
                         messages.append((timetable(group_id=item, lesson_time='YES', next='YES'), user['vk_id']))
         # Отправляем сообщения с задержкой между каждым
         for msg, vk_id in messages:
-            await send_notifications_vk_user([msg], [], [], [], _force_sync=True)
+            await send_notifications_vk_user([msg], [], [], [])
             await asyncio.sleep(0.4)  # задержка между сообщениями (400 мс)
     return True
 
@@ -358,7 +358,7 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
     async def _run_in_executor():
         loop = asyncio.get_running_loop()
         from functools import partial
-        return await loop.run_in_executor(None, partial(send_notifications_vk_user, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week, _force_sync=True))
+        return await loop.run_in_executor(None, partial(send_notifications_vk_user, group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
     import inspect
     frame = inspect.currentframe().f_back
