@@ -231,22 +231,6 @@ def send_notifications_email(group_list_current_week: list, group_list_next_week
     return True
 
 
-# Отправляет сообщение в ВК о том, что расписание изменилось
-def send_notifications_vk_chat(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
-    """
-    Берем по одному пользователю из бд, и смотрим, есть ли у него совпадение с кем-то из списков
-    Если есть, то отправляем сооббщение, что расписание изменилось для такой-то группы или преподавателя
-    """
-    # Подключение к пользовательской базе данных
-    conn = connection_to_sql('user_settings.db')
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    vk_users = c.execute('SELECT * FROM vk_chat WHERE notification = 1').fetchall()
-    c.close()
-    conn.close()
-
-
-
 async def send_notifications_vk_chat_async(group_list_current_week: list, group_list_next_week: list, teacher_list_current_week: list, teacher_list_next_week: list):
     conn = connection_to_sql('user_settings.db')
     conn.row_factory = sqlite3.Row
@@ -553,8 +537,8 @@ def getting_the_difference_in_sql_files_and_sending_them():
     #     logger.log('SQL', 'Successfully sent the differences by email')
     if send_notifications_vk_chat(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by vk_chat')
-    if send_notifications_vk_user(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
-        logger.log('SQL', 'Successfully sent the differences by vk_user')
+    # if send_notifications_vk_user(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
+    #     logger.log('SQL', 'Successfully sent the differences by vk_user')
     if send_notifications_telegram(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the difference by telegram')
 
