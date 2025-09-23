@@ -67,15 +67,18 @@ async def write_msg_telegram(message: str, tg_id):
     from aiogram import Bot
     from aiogram_broadcaster import Broadcaster
     from aiogram_broadcaster.contents import TextContent
+    bot = Bot(token=tg_token)
     try:
-        bot = Bot(token=tg_token)
         broadcaster = Broadcaster(bot)
         content = TextContent(text='➡ ' + message)
         mailer = await broadcaster.create_mailer(chats=[tg_id], content=content)
         mailer.start()
     except Exception as e:
         logger.log('SQL', f'Error happened while sending message to telegram <{str(tg_id)}>: {e}')
+        await bot.session.close()
         return False
+    finally:
+        await bot.session.close()
     logger.log('SQL', f'Message have been sent to telegram <{str(tg_id)}>)')
     return True
 
