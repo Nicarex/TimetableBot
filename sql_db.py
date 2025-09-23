@@ -101,6 +101,7 @@ async def write_msg_telegram(message: str, tg_id):
         except Exception as e:
             err_text = str(e)
             new_id = _extract_new_supergroup_id(err_text)
+            # If chat was migrated to supergroup - update DB and retry
             if new_id is not None:
                 logger.log('SQL', f'Telegram chat {single_id} was migrated to supergroup {new_id}, updating DB and retrying')
                 # Try to update stored id in user_settings.db
@@ -123,6 +124,21 @@ async def write_msg_telegram(message: str, tg_id):
                     logger.log('SQL', f'Error happened while sending message to migrated telegram id <{str(new_id)}>: {e2}')
                     return False
             else:
+                # Detect when bot was blocked by the user and disable notifications for this telegram id
+                lower_err = err_text.lower() if err_text else ''
+                if ('bot was blocked' in lower_err) or (('forbidden' in lower_err) and ('blocked' in lower_err)):
+                    logger.log('SQL', f'Telegram bot was blocked by user <{single_id}>, disabling notifications in DB')
+                    try:
+                        conn = connection_to_sql('user_settings.db')
+                        cur = conn.cursor()
+                        cur.execute('UPDATE telegram SET notification = ? WHERE telegram_id = ?', (0, str(single_id)))
+                        conn.commit()
+                        cur.close()
+                        conn.close()
+                        logger.log('SQL', f'Disabled telegram notifications for <{single_id}> in DB')
+                    except Exception as db_e:
+                        logger.log('SQL', f'Failed to disable telegram notifications for <{single_id}>: {db_e}')
+                    return False
                 logger.log('SQL', f'Error happened while sending message to telegram <{str(single_id)}>: {e}')
                 return False
 
