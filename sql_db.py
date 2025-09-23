@@ -70,21 +70,75 @@ async def write_msg_vk_user(message: str, user_id: str):
 async def write_msg_telegram(message: str, tg_id):
     logger.log('SQL', f'Try to send message to telegram <{str(tg_id)}>')
     from aiogram import Bot
+    import re
     bot = Bot(token=tg_token)
-    try:
+    # Helper to extract new supergroup id from error text
+    def _extract_new_supergroup_id(text: str):
+        if not text:
+            return None
+        # Try common phrasings that Telegram returns when a group was migrated
+        m = re.search(r'migrated to a supergroup with id\s+(-?\d+)', text)
+        if m:
+            return m.group(1)
+        m = re.search(r'supergroup with id\s+(-?\d+)', text)
+        if m:
+            return m.group(1)
+        # Fallback: look for -100... style ids
+        m = re.search(r'(-100\d{6,})', text)
+        if m:
+            return m.group(1)
+        return None
+
+    async def _send_single(single_id):
         try:
-            chat_id = int(tg_id)
-        except Exception:
-            chat_id = tg_id
-        await bot.send_message(chat_id=chat_id, text='➡ ' + message)
-    except Exception as e:
-        logger.log('SQL', f'Error happened while sending message to telegram <{str(tg_id)}>: {e}')
-        await bot.session.close()
-        return False
+            try:
+                chat_id = int(single_id)
+            except Exception:
+                chat_id = single_id
+            await bot.send_message(chat_id=chat_id, text='➡ ' + message)
+            logger.log('SQL', f'Message have been sent to telegram <{str(single_id)}>)')
+            return True
+        except Exception as e:
+            err_text = str(e)
+            new_id = _extract_new_supergroup_id(err_text)
+            if new_id is not None:
+                logger.log('SQL', f'Telegram chat {single_id} was migrated to supergroup {new_id}, updating DB and retrying')
+                # Try to update stored id in user_settings.db
+                try:
+                    conn = connection_to_sql('user_settings.db')
+                    cur = conn.cursor()
+                    cur.execute('UPDATE telegram SET telegram_id = ? WHERE telegram_id = ?', (str(new_id), str(single_id)))
+                    conn.commit()
+                    cur.close()
+                    conn.close()
+                    logger.log('SQL', f'Updated telegram_id in DB: {single_id} -> {new_id}')
+                except Exception as db_e:
+                    logger.log('SQL', f'Failed to update telegram_id in DB for {single_id}: {db_e}')
+                # Retry sending to the new id
+                try:
+                    await bot.send_message(chat_id=int(new_id), text='➡ ' + message)
+                    logger.log('SQL', f'Message have been sent to telegram <{str(new_id)}>)')
+                    return True
+                except Exception as e2:
+                    logger.log('SQL', f'Error happened while sending message to migrated telegram id <{str(new_id)}>: {e2}')
+                    return False
+            else:
+                logger.log('SQL', f'Error happened while sending message to telegram <{str(single_id)}>: {e}')
+                return False
+
+    try:
+        # Support passing a list of ids or a single id
+        if isinstance(tg_id, (list, tuple)):
+            results = []
+            for item in tg_id:
+                res = await _send_single(item)
+                results.append(res)
+                await asyncio.sleep(.25)
+            return all(results)
+        else:
+            return await _send_single(tg_id)
     finally:
         await bot.session.close()
-    logger.log('SQL', f'Message have been sent to telegram <{str(tg_id)}>)')
-    return True
 
 
 # Создание пользовательской базы данных
