@@ -124,10 +124,16 @@ async def write_msg_telegram(message: str, tg_id):
                     logger.log('SQL', f'Error happened while sending message to migrated telegram id <{str(new_id)}>: {e2}')
                     return False
             else:
-                # Detect when bot was blocked by the user and disable notifications for this telegram id
+                # Detect when bot was blocked, user was deactivated or similar forbidden errors
                 lower_err = err_text.lower() if err_text else ''
-                if ('bot was blocked' in lower_err) or (('forbidden' in lower_err) and ('blocked' in lower_err)):
-                    logger.log('SQL', f'Telegram bot was blocked by user <{single_id}>, disabling notifications in DB')
+                # Treat these cases as permanent/unrecoverable for this chat/user and disable notifications
+                disabled_conditions = [
+                    'bot was blocked',
+                    'user is deactivated',
+                ]
+                if any(cond in lower_err for cond in disabled_conditions) or (('forbidden' in lower_err) and ('blocked' in lower_err)):
+                    reason = 'user deactivated' if 'deactiv' in lower_err else 'bot blocked'
+                    logger.log('SQL', f'Telegram notifications will be disabled for <{single_id}> ({reason})')
                     try:
                         conn = connection_to_sql('user_settings.db')
                         cur = conn.cursor()
