@@ -133,6 +133,14 @@ def connection_to_sql(name: str):
         if name == "user_settings.db" or name == "calendars_list.db":
             name=f'dbs/{name}'
         conn = sqlite3.connect(database=name, timeout=20)
+        try:
+            # Improve concurrency for multiple processes by enabling WAL mode
+            conn.execute('PRAGMA journal_mode=WAL;')
+            conn.execute('PRAGMA synchronous=NORMAL;')
+            conn.execute('PRAGMA foreign_keys=ON;')
+        except Exception:
+            # If PRAGMA execution fails, continue with the connection (best-effort)
+            pass
         logger.log('SQL', 'Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:
         logger.error('Failed to read data from sql, error: ' + str(error))
