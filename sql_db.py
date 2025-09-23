@@ -6,7 +6,6 @@ from glob import iglob
 from pathlib import Path
 
 from vkbottle import API
-from aiogram_broadcaster import Broadcaster
 
 from calendar_timetable import create_calendar_file_with_timetable, download_calendar_file_to_github
 from logger import logger
@@ -30,9 +29,15 @@ async def write_msg_vk_chat(message: str, chat_id: str):
     api = API(vk_token)
     try:
         chat_id = int(chat_id)
+        # For community (group) tokens, sending to conversations requires using peer_id = 2000000000 + chat_id
+        # If chat_id already looks like a peer_id (>2e9), use it directly.
+        if chat_id > 2000000000:
+            peer_id = chat_id
+        else:
+            peer_id = 2000000000 + chat_id
         result = await api.messages.send(
             message='➡ ' + message,
-            chat_id=chat_id,
+            peer_id=peer_id,
             random_id=random.randint(1, 2**31 - 1)
         )
         logger.log('SQL', f'Message have been sent to vk chat <{str(chat_id)}>, result: {result}')
@@ -65,14 +70,13 @@ async def write_msg_vk_user(message: str, user_id: str):
 async def write_msg_telegram(message: str, tg_id):
     logger.log('SQL', f'Try to send message to telegram <{str(tg_id)}>')
     from aiogram import Bot
-    from aiogram_broadcaster import Broadcaster
-    from aiogram_broadcaster.contents import TextContent
     bot = Bot(token=tg_token)
     try:
-        broadcaster = Broadcaster(bot)
-        content = TextContent(text='➡ ' + message)
-        mailer = await broadcaster.create_mailer(chats=[tg_id], content=content)
-        mailer.start()
+        try:
+            chat_id = int(tg_id)
+        except Exception:
+            chat_id = tg_id
+        await bot.send_message(chat_id=chat_id, text='➡ ' + message)
     except Exception as e:
         logger.log('SQL', f'Error happened while sending message to telegram <{str(tg_id)}>: {e}')
         await bot.session.close()
