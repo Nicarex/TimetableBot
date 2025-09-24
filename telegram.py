@@ -206,8 +206,42 @@ async def search_in_request(message: types.Message):
 
 
 
-async def error_bot_blocked(update: types.Update, exception):
-    logger.log('TELEGRAM', f'Bot has been forbidden, message: {str(update)}')
+async def error_bot_blocked(*args, **kwargs):
+    """Flexible error handler for aiogram error middleware.
+
+    Aiogram may call error handlers with different signatures depending on
+    the middleware/version (for example, sometimes only the exception is
+    passed). Accept arbitrary args/kwargs and extract an update and an
+    exception when possible so the handler never raises TypeError.
+    """
+    update = None
+    exception = None
+
+    # Try to find exception in kwargs
+    if 'exception' in kwargs:
+        exception = kwargs.get('exception')
+
+    # Try to find update in kwargs
+    if 'update' in kwargs:
+        update = kwargs.get('update')
+
+    # If not found in kwargs, inspect positional args
+    if exception is None or update is None:
+        for arg in args:
+            # Prefer aiogram Update for update
+            try:
+                from aiogram.types import Update
+                if update is None and isinstance(arg, Update):
+                    update = arg
+                    continue
+            except Exception:
+                pass
+
+            # Pick first Exception-like object as exception
+            if exception is None and isinstance(arg, BaseException):
+                exception = arg
+
+    logger.log('TELEGRAM', f'Bot error handler triggered, update: {str(update)}, exception: {str(exception)}')
     return True
 
 
