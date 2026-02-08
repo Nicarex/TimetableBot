@@ -556,10 +556,37 @@ def getting_the_difference_in_sql_files_and_sending_them():
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
     c.execute("ATTACH ? AS db2", (previous_db,))
-    c.execute("SELECT * FROM main.timetable EXCEPT SELECT * FROM db2.timetable")
-    difference = c.fetchall()
+    
+    # Получаем все строки из обеих таблиц
+    c.execute("SELECT * FROM main.timetable")
+    current_rows = c.fetchall()
+    c.execute("SELECT * FROM db2.timetable")
+    previous_rows = c.fetchall()
     c.close()
     conn.close()
+    
+    # Функция для нормализации строки (приведение всех числовых значений к одному типу)
+    def normalize_row(row):
+        """Приводит числовые значения к целым числам для консистентного сравнения"""
+        normalized = {}
+        for key in row.keys():
+            val = row[key]
+            # Если значение число (int или float), приводим к int если возможно
+            if isinstance(val, float) and val == int(val):
+                normalized[key] = int(val)
+            else:
+                normalized[key] = val
+        return normalized
+    
+    # Нормализуем каждую строку
+    current_normalized_rows = [normalize_row(row) for row in current_rows]
+    previous_normalized_rows = [normalize_row(row) for row in previous_rows]
+    
+    # Находим разницу, сравнивая как словари
+    difference = []
+    for curr_row in current_normalized_rows:
+        if curr_row not in previous_normalized_rows:
+            difference.append(curr_row)
     if not difference:
         logger.log('SQL', 'No differences in timetables')
         return False

@@ -165,6 +165,14 @@ def convert_to_sql(csv_files_directory: str):
         logger.log('OTHER', 'Convert <' + csv_file + '> to SQL...')
         timetable_csv = pandas.read_csv(csv_file, encoding='windows-1251', sep=';')
         
+        # Преобразование столбцов с ID и номерами в целые числа
+        # Это обеспечивает консистентность типов данных независимо от кодировки CSV
+        int_columns = ['Les', 'Subg', 'CafID', 'Subj_CafID']
+        for col in int_columns:
+            if col in timetable_csv.columns:
+                # Заполняем NaN значения нулём, затем преобразуем в int
+                timetable_csv[col] = timetable_csv[col].fillna(0).astype('int64')
+        
         timetable_csv['Group'] = timetable_csv['Group'].astype(str)
 
         # Удаление пробелов только из значений в колонке 'Group'
