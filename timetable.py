@@ -8,6 +8,15 @@ import os
 import re
 
 
+# Helper function to safely access Row columns
+def get_row_value(row, column_name, default=''):
+    """Safely get a column value from a sqlite3.Row object"""
+    try:
+        return row[column_name]
+    except (IndexError, KeyError):
+        return default
+
+
 # Дни недели для файла расписания
 list_with_days_of_week = ['ПОНЕДЕЛЬНИК - ', '\nВТОРНИК - ', '\nСРЕДА - ', '\nЧЕТВЕРГ - ', '\nПЯТНИЦА - ', '\nСУББОТА - ', '\nВОСКРЕСЕНЬЕ - ']
 list_with_lesson_time = ['', '09:00-10:30', '10:45-12:15', '12:30-14:00', '14:40-16:10', '16:25-17:55', '18:05-19:35']
@@ -56,26 +65,28 @@ def workload(teacher: str = None, next: str = None):
             # Если строка до этого была
             if last_row is not None:
                 # Если НЕ (номер предыдущей пары равен текущей и дата предыдущей пары равна текущей)
-                if not(last_row['Les'] == row['Les'] and last_row['Date'] == row['Date']):
+                if not(get_row_value(last_row, 'Les') == get_row_value(row, 'Les') and get_row_value(last_row, 'Date') == get_row_value(row, 'Date')):
                     last_row = row
-                    if row['Subj_type'] == 'ГК' or row['Subj_type'] == 'Консультация' or row['Subj_type'] == 'Проверка':
+                    subj_type = get_row_value(row, 'Subj_type')
+                    if subj_type == 'ГК' or subj_type == 'Консультация' or subj_type == 'Проверка':
                         counter_of_all_lessons_in_month += 0.5
                     else:
                         counter_of_all_lessons_in_month += 1
-                    if all_lessons_of_month.get(row['Subj_type']) is None:
-                        all_lessons_of_month[row['Subj_type']] = 1
+                    if all_lessons_of_month.get(subj_type) is None:
+                        all_lessons_of_month[subj_type] = 1
                     else:
-                        all_lessons_of_month[row['Subj_type']] += 1
+                        all_lessons_of_month[subj_type] += 1
             else:
                 last_row = row
-                if row['Subj_type'] == 'ГК' or row['Subj_type'] == 'Консультация' or row['Subj_type'] == 'Проверка':
+                subj_type = get_row_value(row, 'Subj_type')
+                if subj_type == 'ГК' or subj_type == 'Консультация' or subj_type == 'Проверка':
                     counter_of_all_lessons_in_month += 0.5
                 else:
                     counter_of_all_lessons_in_month += 1
-                if all_lessons_of_month.get(row['Subj_type']) is None:
-                    all_lessons_of_month[row['Subj_type']] = 1
+                if all_lessons_of_month.get(subj_type) is None:
+                    all_lessons_of_month[subj_type] = 1
                 else:
-                    all_lessons_of_month[row['Subj_type']] += 1
+                    all_lessons_of_month[subj_type] += 1
     c.close()
     conn.close()
     answer = f"Преподаватель {str(teacher)}\nИтого за {str(dict_with_names_of_month.get(first_day_of_month.format('MMMM')))} - {str(int(counter_of_all_lessons_in_month*2))} ч. занятий"
@@ -100,10 +111,11 @@ def show_all_types_of_lessons_in_db():
     c.close()
     conn.close()
     for row in all_rows:
-        if all_lessons.get(row['Subj_type']) is None:
-            all_lessons[row['Subj_type']] = 1
+        subj_type = get_row_value(row, 'Subj_type')
+        if all_lessons.get(subj_type) is None:
+            all_lessons[subj_type] = 1
         else:
-            all_lessons[row['Subj_type']] += 1
+            all_lessons[subj_type] += 1
     answer = f'Типы занятий:'
     for type_of_lesson in all_lessons:
         answer += f'\n{type_of_lesson} - {all_lessons[type_of_lesson]}'
@@ -327,20 +339,21 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     else:
                         row = timetable_rows[0]
                         # Строка в зависимости от темы
-                        if row['Themas'] is not None:
+                        themas = get_row_value(row, 'Themas')
+                        if themas is not None:
                             if lesson_time is None:
-                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                             else:
-                                timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
-                        elif row['Themas'] is None:
+                                timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
+                        elif themas is None:
                             if lesson_time is None:
-                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                             else:
-                                timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                         # Обработка нескольких групп на одном занятии
                         if len(timetable_rows) > 1:
                             for i in range(1, len(timetable_rows)):
-                                timetable_string += f' {str(timetable_rows[i]["Group"])} гр.'
+                                timetable_string += f' {str(get_row_value(timetable_rows[i], "Group"))} гр.'
             c.close()
             conn.close()
         # Расписание на месяц
@@ -368,21 +381,22 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                             else:
                                 row = rows_in_day[0]
                                 # Тема есть
-                                if row['Themas'] is not None:
+                                themas = get_row_value(row, 'Themas')
+                                if themas is not None:
                                     if lesson_time is None:
-                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                     else:
-                                        timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                        timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                 # Темы нет
-                                elif row['Themas'] is None:
+                                elif themas is None:
                                     if lesson_time is None:
-                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                     else:
-                                        timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Group"])} гр.'
+                                        timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                 # Обработка нескольких групп на одном занятии
                                 if len(rows_in_day) > 1:
                                     for i in range(1, len(rows_in_day)):
-                                        timetable_string += f' {str(rows_in_day[i]["Group"])} гр.'
+                                        timetable_string += f' {str(get_row_value(rows_in_day[i], "Group"))} гр.'
                 c.close()
                 conn.close()
         # Запись файла расписания
@@ -461,20 +475,21 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                 else:
                     row = timetable_rows[0]
                     # Строка в зависимости от темы
-                    if row['Themas'] is not None:
+                    themas = get_row_value(row, 'Themas')
+                    if themas is not None:
                         if lesson_time is None:
-                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
+                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                         else:
-                            timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Themas"])} {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
-                    elif row['Themas'] is None:
+                            timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
+                    elif themas is None:
                         if lesson_time is None:
-                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
+                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                         else:
-                            timetable_string += f'\n{str(lesson)}. ({str(row["Subj_type"])}) {str(row["Subject"])}{str(row["Aud"])} {str(row["Name"])}'
+                            timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                     # Обработка нескольких подгрупп на одном занятии
                     if len(timetable_rows) > 1:
                         for i in range(1, len(timetable_rows)):
-                            timetable_string += f"{str(timetable_rows[i]['Aud'])} {str(timetable_rows[i]['Name'])}"
+                            timetable_string += f"{str(get_row_value(timetable_rows[i], 'Aud'))} {str(get_row_value(timetable_rows[i], 'Name'))}"
         c.close()
         conn.close()
         # Запись файла расписания

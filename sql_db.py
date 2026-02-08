@@ -12,6 +12,14 @@ from logger import logger
 from other import read_config, get_latest_file, connection_to_sql, sendMail
 from timetable import date_request, timetable, workload
 
+# Helper function to safely access Row columns
+def get_row_value(row, column_name, default=''):
+    """Safely get a column value from a sqlite3.Row object"""
+    try:
+        return row[column_name]
+    except (IndexError, KeyError):
+        return default
+
 # Инициализация
 vk_token = read_config(vk='YES')
 tg_token = read_config(telegram='YES')
@@ -565,25 +573,27 @@ def getting_the_difference_in_sql_files_and_sending_them():
     c = conn.cursor()
     for row in difference:
         # Добавление в список, чтобы повторно не обрабатывать
-        if not str(row['Name']) in list_with_teachers:
-            list_with_teachers += [str(row['Name'])]
+        row_name = get_row_value(row, 'Name')
+        row_group = get_row_value(row, 'Group')
+        if not str(row_name) in list_with_teachers:
+            list_with_teachers += [str(row_name)]
             # Если календарь существует для этого преподавателя
-            calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row['Name']),)).fetchone()
+            calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row_name),)).fetchone()
             if calendar_row:
-                if create_calendar_file_with_timetable(teacher=str(row['Name'])) is True:
-                    if download_calendar_file_to_github(filename=str(row['Name'])) is False:
-                        logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
+                if create_calendar_file_with_timetable(teacher=str(row_name)) is True:
+                    if download_calendar_file_to_github(filename=str(row_name)) is False:
+                        logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row_name)}"')
                     else:
-                        logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
-        if not str(row['Group']) in list_with_groups:
-            list_with_groups += [str(row['Group'])]
-            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row['Group']),)).fetchone()
+                        logger.log('SQL', f'Calendar for teacher = "{str(row_name)}" has been successfully updated')
+        if not str(row_group) in list_with_groups:
+            list_with_groups += [str(row_group)]
+            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row_group),)).fetchone()
             if calendar_row:
-                if create_calendar_file_with_timetable(group_id=str(row['Group'])) is True:
-                    if download_calendar_file_to_github(filename=str(row['Group'])) is False:
-                        logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group"])}')
+                if create_calendar_file_with_timetable(group_id=str(row_group)) is True:
+                    if download_calendar_file_to_github(filename=str(row_group)) is False:
+                        logger.log('SQL', f'Cant import timetable to calendar for group = {str(row_group)}')
                     else:
-                        logger.log('SQL', f'Calendar for group = "{str(row["Group"])}" has been successfully updated')
+                        logger.log('SQL', f'Calendar for group = "{str(row_group)}" has been successfully updated')
     # Отправка разницы в ВК и почту
     # Создание списков с датами на текущую и следующую недели для дальнейшего фильтра бд по ним
     dates_current_week = []
@@ -601,20 +611,23 @@ def getting_the_difference_in_sql_files_and_sending_them():
     # Для каждого походящего значения создаем расписание с текущей бд расписания
     # и сравниваем его с расписанием созданным с предыдущей бд расписания
     for row in difference:
-        if str(row['Date']) in dates_current_week:
-            if str(row['Name']) not in teacher_list_current_week:
-                if str(timetable(teacher=str(row['Name']))) != str(timetable(teacher=str(row['Name']), use_previous_timetable_db='YES')):
-                    teacher_list_current_week += [str(row['Name'])]
-            if str(row["Group"]) not in group_list_current_week:
-                if str(timetable(group_id=str(row['Group']))) != str(timetable(group_id=str(row['Group']), use_previous_timetable_db='YES')):
-                    group_list_current_week += [str(row['Group'])]
-        elif str(row['Date']) in dates_next_week:
-            if str(row['Name']) not in teacher_list_next_week:
-                if str(timetable(teacher=str(row['Name']), next='YES')) != str(timetable(teacher=str(row['Name']), next='YES', use_previous_timetable_db='YES')):
-                    teacher_list_next_week += [str(row['Name'])]
-            if str(row['Group']) not in group_list_next_week:
-                if str(timetable(group_id=str(row['Group']), next='YES')) != str(timetable(group_id=str(row['Group']), next='YES', use_previous_timetable_db='YES')):
-                    group_list_next_week += [str(row['Group'])]
+        row_name = get_row_value(row, 'Name')
+        row_group = get_row_value(row, 'Group')
+        row_date = get_row_value(row, 'Date')
+        if str(row_date) in dates_current_week:
+            if str(row_name) not in teacher_list_current_week:
+                if str(timetable(teacher=str(row_name))) != str(timetable(teacher=str(row_name), use_previous_timetable_db='YES')):
+                    teacher_list_current_week += [str(row_name)]
+            if str(row_group) not in group_list_current_week:
+                if str(timetable(group_id=str(row_group))) != str(timetable(group_id=str(row_group), use_previous_timetable_db='YES')):
+                    group_list_current_week += [str(row_group)]
+        elif str(row_date) in dates_next_week:
+            if str(row_name) not in teacher_list_next_week:
+                if str(timetable(teacher=str(row_name), next='YES')) != str(timetable(teacher=str(row_name), next='YES', use_previous_timetable_db='YES')):
+                    teacher_list_next_week += [str(row_name)]
+            if str(row_group) not in group_list_next_week:
+                if str(timetable(group_id=str(row_group), next='YES')) != str(timetable(group_id=str(row_group), next='YES', use_previous_timetable_db='YES')):
+                    group_list_next_week += [str(row_group)]
     logger.log('SQL', 'Got the differences. Trying to send them to users')
     if send_notifications_email(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by email')
