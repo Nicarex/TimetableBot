@@ -165,10 +165,10 @@ def convert_to_sql(csv_files_directory: str):
         logger.log('OTHER', 'Convert <' + csv_file + '> to SQL...')
         timetable_csv = pandas.read_csv(csv_file, encoding='windows-1251', sep=';')
         
-        timetable_csv['Group-Utf'] = timetable_csv['Group-Utf'].astype(str)
+        timetable_csv['Group'] = timetable_csv['Group'].astype(str)
 
-        # Удаление пробелов только из значений в колонке 'Group-Utf'
-        timetable_csv['Group-Utf'] = timetable_csv['Group-Utf'].str.replace(' ', '')
+        # Удаление пробелов только из значений в колонке 'Group'
+        timetable_csv['Group'] = timetable_csv['Group'].str.replace(' ', '')
         
         # Замена значений, содержащих только пробелы, на None в колонке 'Name'
         timetable_csv['Name'] = timetable_csv['Name'].replace(r'^\s*$', None, regex=True)        

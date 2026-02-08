@@ -33,7 +33,7 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
         conn.row_factory = Row
         c = conn.cursor()
         timetable_rows = c.execute(
-            'SELECT * FROM timetable WHERE "Name" = ? ORDER BY "Week", "Day", "Les", "Group-Utf", "Subg"',
+            'SELECT * FROM timetable WHERE "Name" = ? ORDER BY "Week", "Day", "Les", "Group", "Subg"',
             (teacher,)).fetchall()
         c.close()
         conn.close()
@@ -91,9 +91,9 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
             timetable_string = ''
             # Строка в зависимости от темы
             if elem['Themas'] is not None:
-                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group-Utf"])} гр.'
+                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
             elif elem['Themas'] is None:
-                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group-Utf"])} гр.'
+                timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
             groups_for_description = ''
             # Обработка нескольких групп на одном занятии
             for i in range(1, 11):
@@ -101,16 +101,16 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
                 if index + i < len(timetable_rows):
                     if str(timetable_rows[index + i]['Date']) == str(elem['Date']) and str(
                             timetable_rows[index + i]['Les']) == str(elem['Les']):
-                        timetable_string += f' {str(timetable_rows[index + i]["Group-Utf"])} гр.'
-                        groups_for_description += f' {str(timetable_rows[index + i]["Group-Utf"])}'
+                        timetable_string += f' {str(timetable_rows[index + i]["Group"])} гр.'
+                        groups_for_description += f' {str(timetable_rows[index + i]["Group"])}'
                         exclude_row += [timetable_rows[index + i]]
             # Добавление описания в событие
             event.add('summary', f'{timetable_string}')
             if elem['Themas'] is not None:
-                event.add('description', f'Тип занятия: {str(elem["Subj_type"])}\nТема: {str(elem["Themas"])}\nПредмет: {str(elem["Subject"])}\nАудитория:{str(elem["Aud"])}\nГруппы: {str(elem["Group-Utf"])}{str(groups_for_description)}')
+                event.add('description', f'Тип занятия: {str(elem["Subj_type"])}\nТема: {str(elem["Themas"])}\nПредмет: {str(elem["Subject"])}\nАудитория:{str(elem["Aud"])}\nГруппы: {str(elem["Group"])}{str(groups_for_description)}')
             else:
                 event.add('description',
-                          f'Тип занятия: {str(elem["Subj_type"])}\nПредмет: {str(elem["Subject"])}\nАудитория:{str(elem["Aud"])}\nГруппы: {str(elem["Group-Utf"])}{str(groups_for_description)}')
+                          f'Тип занятия: {str(elem["Subj_type"])}\nПредмет: {str(elem["Subject"])}\nАудитория:{str(elem["Aud"])}\nГруппы: {str(elem["Group"])}{str(groups_for_description)}')
             cal.add_component(event)
         with open(f'calendars/{teacher}.ics', 'wb') as file:
             file.write(cal.to_ical())
@@ -136,7 +136,7 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
         conn = connection_to_sql(db_timetable)
         conn.row_factory = Row
         c = conn.cursor()
-        timetable_rows = c.execute('SELECT * FROM timetable WHERE "Group-Utf" = ? ORDER BY "Week", "Day", "Les", "Subg"', (group_id,)).fetchall()
+        timetable_rows = c.execute('SELECT * FROM timetable WHERE "Group" = ? ORDER BY "Week", "Day", "Les", "Subg"', (group_id,)).fetchall()
         c.close()
         conn.close()
         # Добавление занятий в календарь

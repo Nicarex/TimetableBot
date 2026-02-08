@@ -575,15 +575,15 @@ def getting_the_difference_in_sql_files_and_sending_them():
                         logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row["Name"])}"')
                     else:
                         logger.log('SQL', f'Calendar for teacher = "{str(row["Name"])}" has been successfully updated')
-        if not str(row['Group-Utf']) in list_with_groups:
-            list_with_groups += [str(row['Group-Utf'])]
-            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row['Group-Utf']),)).fetchone()
+        if not str(row['Group']) in list_with_groups:
+            list_with_groups += [str(row['Group'])]
+            calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row['Group']),)).fetchone()
             if calendar_row:
-                if create_calendar_file_with_timetable(group_id=str(row['Group-Utf'])) is True:
-                    if download_calendar_file_to_github(filename=str(row['Group-Utf'])) is False:
-                        logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group-Utf"])}')
+                if create_calendar_file_with_timetable(group_id=str(row['Group'])) is True:
+                    if download_calendar_file_to_github(filename=str(row['Group'])) is False:
+                        logger.log('SQL', f'Cant import timetable to calendar for group = {str(row["Group"])}')
                     else:
-                        logger.log('SQL', f'Calendar for group = "{str(row["Group-Utf"])}" has been successfully updated')
+                        logger.log('SQL', f'Calendar for group = "{str(row["Group"])}" has been successfully updated')
     # Отправка разницы в ВК и почту
     # Создание списков с датами на текущую и следующую недели для дальнейшего фильтра бд по ним
     dates_current_week = []
@@ -605,16 +605,16 @@ def getting_the_difference_in_sql_files_and_sending_them():
             if str(row['Name']) not in teacher_list_current_week:
                 if str(timetable(teacher=str(row['Name']))) != str(timetable(teacher=str(row['Name']), use_previous_timetable_db='YES')):
                     teacher_list_current_week += [str(row['Name'])]
-            if str(row["Group-Utf"]) not in group_list_current_week:
-                if str(timetable(group_id=str(row['Group-Utf']))) != str(timetable(group_id=str(row['Group-Utf']), use_previous_timetable_db='YES')):
-                    group_list_current_week += [str(row['Group-Utf'])]
+            if str(row["Group"]) not in group_list_current_week:
+                if str(timetable(group_id=str(row['Group']))) != str(timetable(group_id=str(row['Group']), use_previous_timetable_db='YES')):
+                    group_list_current_week += [str(row['Group'])]
         elif str(row['Date']) in dates_next_week:
             if str(row['Name']) not in teacher_list_next_week:
                 if str(timetable(teacher=str(row['Name']), next='YES')) != str(timetable(teacher=str(row['Name']), next='YES', use_previous_timetable_db='YES')):
                     teacher_list_next_week += [str(row['Name'])]
-            if str(row['Group-Utf']) not in group_list_next_week:
-                if str(timetable(group_id=str(row['Group-Utf']), next='YES')) != str(timetable(group_id=str(row['Group-Utf']), next='YES', use_previous_timetable_db='YES')):
-                    group_list_next_week += [str(row['Group-Utf'])]
+            if str(row['Group']) not in group_list_next_week:
+                if str(timetable(group_id=str(row['Group']), next='YES')) != str(timetable(group_id=str(row['Group']), next='YES', use_previous_timetable_db='YES')):
+                    group_list_next_week += [str(row['Group'])]
     logger.log('SQL', 'Got the differences. Trying to send them to users')
     if send_notifications_email(group_list_current_week=group_list_current_week, group_list_next_week=group_list_next_week, teacher_list_current_week=teacher_list_current_week, teacher_list_next_week=teacher_list_next_week) is True:
         logger.log('SQL', 'Successfully sent the differences by email')
@@ -656,8 +656,8 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
         if request.find(str(row['Name'])) != -1 and not str(row['Name']) in matched_teacher and not str(row['Name']) == ' ':
             matched_teacher += [str(row['Name'])]
         # Группы
-        if request.find(str(row['Group-Utf'])) != -1 and not str(row['Group-Utf']) in matched_group:
-            matched_group += [str(row['Group-Utf'])]
+        if request.find(str(row['Group'])) != -1 and not str(row['Group']) in matched_group:
+            matched_group += [str(row['Group'])]
     # Если есть хоть одна распознанная группа или преподаватель
     if matched_group or matched_teacher:
         # Закрываем подключение, так как будем работать с другой бд
@@ -1331,7 +1331,7 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
         else:
             request_mod = '%' + request + '%'
         # Поиск в базе данных для группы
-        c.execute('SELECT * FROM timetable WHERE "Group-Utf" LIKE ?', (request_mod,))
+        c.execute('SELECT * FROM timetable WHERE "Group" LIKE ?', (request_mod,))
         records_group = c.fetchall()
         # Поиск в базе данных для преподавателя
         c.execute('SELECT * FROM timetable WHERE "Name" LIKE ?', (request_mod,))
@@ -1343,8 +1343,8 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
         # Если нашлась хоть одна группа
         if records_group is not None:
             for row in records_group:
-                if response.find(row["Group-Utf"]) == -1:
-                    response += row["Group-Utf"] + '\n'
+                if response.find(row["Group"]) == -1:
+                    response += row["Group"] + '\n'
         # Если есть хоть один преподаватель
         if records_teacher is not None:
             for row in records_teacher:
