@@ -38,7 +38,7 @@ def processingMail():
                     logger.log('MAIL', 'File <' + attachment.filename + '> is downloaded, size = ' + str(round(attachment.size / 1024, 1)) + 'KB')
                 # Проверка вложений
                 # Проверка кодировки
-                if check_encoding_and_move_files(path=download_folder, encoding='utf-8') is True:
+                if check_encoding_and_move_files(path=download_folder, encoding='windows-1251') is True:
                     # Конвертирование CSV в SQL
                     convert_to_sql(csv_files_directory=download_folder)
                     # Удаление прошлых сохраненных расписаний

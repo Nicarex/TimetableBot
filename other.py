@@ -163,7 +163,7 @@ def convert_to_sql(csv_files_directory: str):
     conn = connection_to_sql(name='timetable-dbs/timetable_' + date + '.db')
     for csv_file in list_of_files:
         logger.log('OTHER', 'Convert <' + csv_file + '> to SQL...')
-        timetable_csv = pandas.read_csv(csv_file, encoding='utf-8', sep=';')
+        timetable_csv = pandas.read_csv(csv_file, encoding='windows-1251', sep=';')
         
         timetable_csv['Group-Utf'] = timetable_csv['Group-Utf'].astype(str)
 
