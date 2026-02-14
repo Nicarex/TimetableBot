@@ -40,8 +40,8 @@ class TestCreateCalendarFileWithTimetable:
         conn = sqlite3.connect(str(db_path))
         conn.execute('''
             CREATE TABLE timetable (
-                Name TEXT, Date TEXT, Les INTEGER, Week INTEGER, Day INTEGER,
-                Group TEXT, Subg INTEGER, Subject TEXT, Aud TEXT, Subj_type TEXT, Themas TEXT, CafID INTEGER
+                "Name" TEXT, "Date" TEXT, "Les" INTEGER, "Week" INTEGER, "Day" INTEGER,
+                "Group" TEXT, "Subg" INTEGER, "Subject" TEXT, "Aud" TEXT, "Subj_type" TEXT, "Themas" TEXT, "CafID" INTEGER
             )
         ''')
         # Вставляем запись с некорректным номером пары (99)
@@ -73,8 +73,8 @@ class TestCreateCalendarFileWithTimetable:
         conn = sqlite3.connect(str(db_path))
         conn.execute('''
             CREATE TABLE timetable (
-                Name TEXT, Date TEXT, Les INTEGER, Week INTEGER, Day INTEGER,
-                Group TEXT, Subg INTEGER, Subject TEXT, Aud TEXT, Subj_type TEXT, Themas TEXT, CafID INTEGER
+                "Name" TEXT, "Date" TEXT, "Les" INTEGER, "Week" INTEGER, "Day" INTEGER,
+                "Group" TEXT, "Subg" INTEGER, "Subject" TEXT, "Aud" TEXT, "Subj_type" TEXT, "Themas" TEXT, "CafID" INTEGER
             )
         ''')
         # Добавляем корректные данные

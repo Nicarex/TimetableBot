@@ -95,7 +95,7 @@ class TestConnectionToSqlAdvanced:
         conn2 = connection_to_sql(db_path)
         
         # Обе conexiones должны работать
-        conn1.execute('CREATE TABLE t1 (id INTEGER)')
+        conn1.execute('CREATE TABLE t1 ("id" INTEGER)')
         conn1.commit()
         
         # Вторая conexiones может читать
@@ -118,7 +118,7 @@ class TestGetRowValue:
         conn.row_factory = __import__('sqlite3').Row
         
         # Создаем таблицу и данные
-        conn.execute('CREATE TABLE test (name TEXT, age INTEGER)')
+        conn.execute('CREATE TABLE test ("name" TEXT, "age" INTEGER)')
         conn.execute("INSERT INTO test VALUES ('Иван', 30)")
         conn.commit()
         
@@ -139,7 +139,7 @@ class TestGetRowValue:
         conn = connection_to_sql(db_path)
         conn.row_factory = __import__('sqlite3').Row
         
-        conn.execute('CREATE TABLE test (name TEXT)')
+        conn.execute('CREATE TABLE test ("name" TEXT)')
         conn.execute("INSERT INTO test VALUES ('Иван')")
         conn.commit()
         

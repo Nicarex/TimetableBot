@@ -51,10 +51,82 @@ sys.modules['vkbottle'].API = lambda *a, **k: None
 sys.modules['chardet'].detect = lambda *a, **k: {'encoding': 'utf-8', 'confidence': 1.0}
 
 # pendulum — заглушки для основных методов
+from datetime import datetime, timedelta
+
+class _MockDateTime:
+    """Mock для pendulum DateTime."""
+    def __init__(self, dt=None):
+        self.dt = dt if dt else datetime.now()
+    
+    def start_of(self, unit):
+        if unit == 'week':
+            # Понедельник текущей недели
+            days_since_monday = self.dt.weekday()
+            new_dt = self.dt - timedelta(days=days_since_monday)
+            return _MockDateTime(new_dt.replace(hour=0, minute=0, second=0))
+        elif unit == 'month':
+            return _MockDateTime(self.dt.replace(day=1, hour=0, minute=0, second=0))
+        return self
+    
+    def next(self, day_name):
+        # Следующий понедельник (day_name == MONDAY)
+        days_ahead = 7 - self.dt.weekday()
+        if days_ahead <= 0:
+            days_ahead += 7
+        next_dt = self.dt + timedelta(days=days_ahead)
+        return _MockDateTime(next_dt)
+    
+    def add(self, **kwargs):
+        new_dt = self.dt
+        if 'months' in kwargs:
+            month = self.dt.month + kwargs['months']
+            year = self.dt.year
+            while month > 12:
+                month -= 12
+                year += 1
+            new_dt = self.dt.replace(year=year, month=month)
+        elif 'years' in kwargs:
+            new_dt = self.dt.replace(year=self.dt.year + kwargs['years'])
+        elif 'days' in kwargs:
+            new_dt = self.dt + timedelta(days=kwargs['days'])
+        return _MockDateTime(new_dt)
+    
+    def subtract(self, **kwargs):
+        new_dt = self.dt
+        if 'years' in kwargs:
+            new_dt = self.dt.replace(year=self.dt.year - kwargs['years'])
+        return _MockDateTime(new_dt)
+    
+    def format(self, fmt_str):
+        if fmt_str == 'D-MM-YYYY':
+            return self.dt.strftime('%-d-%m-%Y').lstrip('0').replace('0', '', 1) if self.dt.day < 10 else self.dt.strftime('%-d-%m-%Y')
+        elif fmt_str == 'DD.MM.YYYY':
+            return self.dt.strftime('%d.%m.%Y')
+        elif fmt_str == 'MMMM':
+            months = ['январь', 'февраль', 'март', 'апрель', 'май', 'июнь',
+                     'июль', 'август', 'сентябрь', 'октябрь', 'ноябрь', 'декабрь']
+            return months[self.dt.month - 1]
+        return str(self.dt)
+    
+    def isoweekday(self):
+        return self.dt.isoweekday()
+    
+    def __sub__(self, other):
+        if isinstance(other, timedelta):
+            return _MockDateTime(self.dt - other)
+        return self.dt - other.dt
+    
+    def __eq__(self, other):
+        if isinstance(other, _MockDateTime):
+            return self.dt == other.dt
+        return False
+
 _pendulum = sys.modules['pendulum']
-_pendulum.now = lambda *a, **kw: None
+_pendulum.now = lambda *a, **kw: _MockDateTime()
 _pendulum.set_locale = lambda *a, **kw: None
-_pendulum.from_format = lambda *a, **kw: None
+_pendulum.from_format = lambda *a, **kw: _MockDateTime()
+_pendulum.MONDAY = 'MONDAY'
+_pendulum.SUNDAY = 'SUNDAY'
 
 # pandas — заглушка для read_csv
 _pandas = sys.modules['pandas']

@@ -39,8 +39,8 @@ class TestCreateExcelWithWorkload:
         conn = sqlite3.connect(str(db_path))
         conn.execute('''
             CREATE TABLE timetable (
-                Name TEXT, Date TEXT, Les INTEGER,
-                Subject TEXT, Subj_type TEXT, CafID INTEGER
+                "Name" TEXT, "Date" TEXT, "Les" INTEGER,
+                "Subject" TEXT, "Subj_type" TEXT, "CafID" INTEGER
             )
         ''')
         conn.execute('''
@@ -73,8 +73,8 @@ class TestCreateExcelWithWorkload:
         conn = sqlite3.connect(str(db_path))
         conn.execute('''
             CREATE TABLE timetable (
-                Name TEXT, Date TEXT, Les INTEGER,
-                Subject TEXT, Subj_type TEXT, CafID INTEGER
+                "Name" TEXT, "Date" TEXT, "Les" INTEGER,
+                "Subject" TEXT, "Subj_type" TEXT, "CafID" INTEGER
             )
         ''')
         # Добавляем несколько преподавателей одной кафедры
@@ -110,8 +110,8 @@ class TestCreateExcelWithWorkload:
         conn = sqlite3.connect(str(db_path))
         conn.execute('''
             CREATE TABLE timetable (
-                Name TEXT, Date TEXT, Les INTEGER,
-                Subject TEXT, Subj_type TEXT, CafID INTEGER
+                "Name" TEXT, "Date" TEXT, "Les" INTEGER,
+                "Subject" TEXT, "Subj_type" TEXT, "CafID" INTEGER
             )
         ''')
         conn.execute('''
