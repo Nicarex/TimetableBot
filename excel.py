@@ -87,6 +87,9 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
             last_row_key = row_key
 
             subj_type = get_row_value(row, 'Subj_type')
+            # Обработка None значений
+            if subj_type is None:
+                subj_type = 'Не указано'
             if subj_type in ('ГК', 'Консультация', 'Проверка'):
                 hours = 1.0
             else:
@@ -207,7 +210,7 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
     worksheet.write(row_num, 2, 'Часы', fmt_header)
     row_num += 1
 
-    for subj_type, data in sorted(type_summary.items()):
+    for subj_type, data in sorted(type_summary.items(), key=lambda x: str(x[0])):
         worksheet.write(row_num, 0, subj_type, fmt_cell_left)
         worksheet.write(row_num, 1, data['count'], fmt_cell)
         worksheet.write(row_num, 2, data['hours'], fmt_cell)

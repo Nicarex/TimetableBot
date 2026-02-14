@@ -118,11 +118,10 @@ async def workload_excel_now(message: types.Message):
                     document = FSInputFile(filepath)
                     await bot.send_document(chat_id=message.chat.id, document=document)
                 except Exception as e:
-                    logger.error(f'Error sending workload file {filepath}: {str(e)}')
-                    await message.answer(f'Ошибка при отправке файла: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
+                    logger.error(f'Error sending workload file {filepath}: {str(e)}', exc_info=True)
     except Exception as e:
-        logger.error(f'Error in workload_excel_now: {str(e)}')
-        await message.answer(f'Ошибка при генерации файла нагрузки: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
+        logger.error(f'Error in workload_excel_now: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файла нагрузки. Пожалуйста, попробуйте позже.', reply_markup=KEYBOARD_USER_MAIN)
     logger.log('TELEGRAM', f'Response to workload excel from: <{str(message.chat.id)}>')
 
 
@@ -140,11 +139,10 @@ async def workload_excel_next(message: types.Message):
                     document = FSInputFile(filepath)
                     await bot.send_document(chat_id=message.chat.id, document=document)
                 except Exception as e:
-                    logger.error(f'Error sending workload file {filepath}: {str(e)}')
-                    await message.answer(f'Ошибка при отправке файла: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
+                    logger.error(f'Error sending workload file {filepath}: {str(e)}', exc_info=True)
     except Exception as e:
-        logger.error(f'Error in workload_excel_next: {str(e)}')
-        await message.answer(f'Ошибка при генерации файла нагрузки: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
+        logger.error(f'Error in workload_excel_next: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файла нагрузки. Пожалуйста, попробуйте позже.', reply_markup=KEYBOARD_USER_MAIN)
     logger.log('TELEGRAM', f'Response to workload excel next from: <{str(message.chat.id)}>')
 
 

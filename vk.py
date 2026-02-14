@@ -5,7 +5,7 @@ import functools
 import random
 import time
 from logger import logger
-from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, KeyboardButtonColor, OpenLink
+from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, KeyboardButtonColor, OpenLink, DocMessagesUploader
 from vkbottle.bot import Bot, Message
 from other import read_config
 from calendar_timetable import show_calendar_url_to_user
@@ -23,6 +23,7 @@ async def run_sync(func, *args, **kwargs):
 
 group_token = read_config(vk='YES')
 bot = Bot(token=group_token)
+doc_uploader = DocMessagesUploader(bot.api)
 
 
 KEYBOARD_USER_MAIN = (
@@ -146,33 +147,29 @@ KEYBOARD_CHAT_LESSON_TIME = (
 
 
 async def upload_and_send_doc_vk(message: Message, filepath: str, peer_id: int):
-    """Загружает файл как документ VK и отправляет его в сообщении."""
-    import os
+    """Загружает файл как документ VK и отправляет его в сообщении, используя встроенный uploader."""
     try:
-        upload_server = await bot.api.docs.get_messages_upload_server(type='doc', peer_id=peer_id)
-        upload_url = upload_server.upload_url
-        async with aiohttp.ClientSession() as session:
-            with open(filepath, 'rb') as f:
-                form = aiohttp.FormData()
-                form.add_field('file', f, filename=os.path.basename(filepath))
-                async with session.post(upload_url, data=form) as resp:
-                    result = await resp.json()
-        if 'file' not in result:
-            logger.log('VK', f'Failed to upload file {filepath}: {result}')
-            await message.answer('Не удалось загрузить файл')
-            return
-        saved = await bot.api.docs.save(file=result['file'], title=os.path.basename(filepath))
-        doc = saved.doc
-        attachment = f'doc{doc.owner_id}_{doc.id}'
-        await bot.api.messages.send(
+        doc_attachment = await doc_uploader.upload(
+            file_source=filepath,
             peer_id=peer_id,
-            message='Файл нагрузки',
-            attachment=attachment,
-            random_id=random.randint(1, 2**31 - 1)
         )
+        await message.answer(
+            message='Файл нагрузки',
+            attachment=doc_attachment
+        )
+        logger.log('VK', f'Successfully sent document {filepath} to peer {peer_id}')
+    except VKAPIError as e:
+        if e.error_code == 15:  # Access denied
+            logger.error(f'VK API Error 15 (Access Denied): Insufficient permissions to send documents. Error: {e}')
+            await message.answer('⚠️ К сожалению, у бота недостаточно прав для отправки документов в VK. Пожалуйста, свяжитесь с администратором группы.')
+        else:
+            logger.error(f'VK API Error {e.error_code}: {e}')
+            await message.answer(f'Произошла ошибка VK API при отправке файла')
     except Exception as e:
-        logger.log('VK', f'Error uploading/sending doc: {e}')
+        logger.error(f'Error uploading/sending doc: {str(e)}')
         await message.answer('Произошла ошибка при отправке файла')
+
+
 
 
 # Обработка личных сообщений
@@ -228,12 +225,16 @@ async def user_work_load_next(message: Message):
 async def user_workload_excel_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     await message.answer('Генерация файла нагрузки, подождите...', keyboard=KEYBOARD_USER_MAIN)
-    files = await run_sync(getting_workload_excel_for_user, vk_id_user=str(message.from_id))
-    if not files:
-        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
-    else:
-        for filepath in files:
-            await upload_and_send_doc_vk(message, filepath, message.from_id)
+    try:
+        files = await run_sync(getting_workload_excel_for_user, vk_id_user=str(message.from_id))
+        if not files:
+            await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
+        else:
+            for filepath in files:
+                await upload_and_send_doc_vk(message, filepath, message.from_id)
+    except Exception as e:
+        logger.error(f'Error in user_workload_excel_now: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файла нагрузки. Пожалуйста, попробуйте позже.', keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to workload excel from vk user: "' + str(message.from_id) + '"')
 
 
@@ -241,12 +242,16 @@ async def user_workload_excel_now(message: Message):
 async def user_workload_excel_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     await message.answer('Генерация файла нагрузки на следующий месяц, подождите...', keyboard=KEYBOARD_USER_MAIN)
-    files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_user=str(message.from_id))
-    if not files:
-        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
-    else:
-        for filepath in files:
-            await upload_and_send_doc_vk(message, filepath, message.from_id)
+    try:
+        files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_user=str(message.from_id))
+        if not files:
+            await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
+        else:
+            for filepath in files:
+                await upload_and_send_doc_vk(message, filepath, message.from_id)
+    except Exception as e:
+        logger.error(f'Error in user_workload_excel_next: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файла нагрузки. Пожалуйста, попробуйте позже.', keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to workload excel next from vk user: "' + str(message.from_id) + '"')
 
 
@@ -484,13 +489,17 @@ async def chat_delete_saved_settings(message: Message):
 async def chat_workload_excel_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Генерация файла нагрузки, подождите...')
-    files = await run_sync(getting_workload_excel_for_user, vk_id_chat=str(message.chat_id))
-    if not files:
-        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
-    else:
-        peer_id = 2000000000 + message.chat_id
-        for filepath in files:
-            await upload_and_send_doc_vk(message, filepath, peer_id)
+    try:
+        files = await run_sync(getting_workload_excel_for_user, vk_id_chat=str(message.chat_id))
+        if not files:
+            await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
+        else:
+            peer_id = 2000000000 + message.chat_id
+            for filepath in files:
+                await upload_and_send_doc_vk(message, filepath, peer_id)
+    except Exception as e:
+        logger.error(f'Error in chat_workload_excel_now: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файла нагружки', keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to workload excel from vk chat: "' + str(message.chat_id) + '"')
 
 
@@ -498,13 +507,17 @@ async def chat_workload_excel_now(message: Message):
 async def chat_workload_excel_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Генерация файла нагрузки на следующий месяц, подождите...')
-    files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_chat=str(message.chat_id))
-    if not files:
-        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
-    else:
-        peer_id = 2000000000 + message.chat_id
-        for filepath in files:
-            await upload_and_send_doc_vk(message, filepath, peer_id)
+    try:
+        files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_chat=str(message.chat_id))
+        if not files:
+            await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
+        else:
+            peer_id = 2000000000 + message.chat_id
+            for filepath in files:
+                await upload_and_send_doc_vk(message, filepath, peer_id)
+    except Exception as e:
+        logger.error(f'Error in chat_workload_excel_next: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файла нагружки', keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to workload excel next from vk chat: "' + str(message.chat_id) + '"')
 
 
