@@ -14,4 +14,3 @@ xlsxwriter==3.2.9
 
 # Для тестирования
 pytest==7.4.4
-pytest-asyncio==0.23.1
