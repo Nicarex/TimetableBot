@@ -9,7 +9,8 @@ from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, Key
 from vkbottle.bot import Bot, Message
 from other import read_config
 from calendar_timetable import show_calendar_url_to_user
-from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user
+from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user, getting_workload_excel_for_user
+import aiohttp
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO, VK_CLUB_ID
 from messaging import split_response
 
@@ -28,6 +29,9 @@ KEYBOARD_USER_MAIN = (
     Keyboard(one_time=False, inline=False)
     .add(Text("Текущая неделя"), color=KeyboardButtonColor.PRIMARY)
     .add(Text("Следующая неделя"), color=KeyboardButtonColor.POSITIVE)
+    .row()
+    .add(Text("Нагрузка (Excel)"), color=KeyboardButtonColor.PRIMARY)
+    .add(Text("Нагрузка след. месяц (Excel)"), color=KeyboardButtonColor.POSITIVE)
     .row()
     .add(Text("Календарь"), color=KeyboardButtonColor.SECONDARY)
     .add(Text("Настройки"), color=KeyboardButtonColor.NEGATIVE)
@@ -86,6 +90,10 @@ KEYBOARD_CHAT_MAIN = (
     .row()
     .add(Text("Следующая неделя"), color=KeyboardButtonColor.POSITIVE)
     .row()
+    .add(Text("Нагрузка (Excel)"), color=KeyboardButtonColor.PRIMARY)
+    .row()
+    .add(Text("Нагрузка след. месяц (Excel)"), color=KeyboardButtonColor.POSITIVE)
+    .row()
     .add(Text("Настройки"), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
 )
@@ -137,6 +145,36 @@ KEYBOARD_CHAT_LESSON_TIME = (
 )
 
 
+async def upload_and_send_doc_vk(message: Message, filepath: str, peer_id: int):
+    """Загружает файл как документ VK и отправляет его в сообщении."""
+    import os
+    try:
+        upload_server = await bot.api.docs.get_messages_upload_server(type='doc', peer_id=peer_id)
+        upload_url = upload_server.upload_url
+        async with aiohttp.ClientSession() as session:
+            with open(filepath, 'rb') as f:
+                form = aiohttp.FormData()
+                form.add_field('file', f, filename=os.path.basename(filepath))
+                async with session.post(upload_url, data=form) as resp:
+                    result = await resp.json()
+        if 'file' not in result:
+            logger.log('VK', f'Failed to upload file {filepath}: {result}')
+            await message.answer('Не удалось загрузить файл')
+            return
+        saved = await bot.api.docs.save(file=result['file'], title=os.path.basename(filepath))
+        doc = saved.doc
+        attachment = f'doc{doc.owner_id}_{doc.id}'
+        await bot.api.messages.send(
+            peer_id=peer_id,
+            message='Файл нагрузки',
+            attachment=attachment,
+            random_id=random.randint(1, 2**31 - 1)
+        )
+    except Exception as e:
+        logger.log('VK', f'Error uploading/sending doc: {e}')
+        await message.answer('Произошла ошибка при отправке файла')
+
+
 # Обработка личных сообщений
 @bot.on.private_message(text="Текущая неделя")
 async def user_timetable_now(message: Message):
@@ -184,6 +222,32 @@ async def user_work_load_next(message: Message):
         else:
             await message.answer(part)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
+
+
+@bot.on.private_message(text="Нагрузка (Excel)")
+async def user_workload_excel_now(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    await message.answer('Генерация файла нагрузки, подождите...', keyboard=KEYBOARD_USER_MAIN)
+    files = await run_sync(getting_workload_excel_for_user, vk_id_user=str(message.from_id))
+    if not files:
+        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
+    else:
+        for filepath in files:
+            await upload_and_send_doc_vk(message, filepath, message.from_id)
+    logger.log('VK', 'Response to workload excel from vk user: "' + str(message.from_id) + '"')
+
+
+@bot.on.private_message(text="Нагрузка след. месяц (Excel)")
+async def user_workload_excel_next(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
+    await message.answer('Генерация файла нагрузки на следующий месяц, подождите...', keyboard=KEYBOARD_USER_MAIN)
+    files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_user=str(message.from_id))
+    if not files:
+        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
+    else:
+        for filepath in files:
+            await upload_and_send_doc_vk(message, filepath, message.from_id)
+    logger.log('VK', 'Response to workload excel next from vk user: "' + str(message.from_id) + '"')
 
 
 @bot.on.private_message(text="Начать")
@@ -414,6 +478,34 @@ async def chat_delete_saved_settings(message: Message):
     answer = await run_sync(delete_all_saved_groups_and_teachers, vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
+
+
+@bot.on.chat_message(text=["Нагрузка (Excel)", f'[club{VK_CLUB_ID}|@bot_agz] Нагрузка (Excel)'])
+async def chat_workload_excel_now(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
+    await message.answer('Генерация файла нагрузки, подождите...')
+    files = await run_sync(getting_workload_excel_for_user, vk_id_chat=str(message.chat_id))
+    if not files:
+        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
+    else:
+        peer_id = 2000000000 + message.chat_id
+        for filepath in files:
+            await upload_and_send_doc_vk(message, filepath, peer_id)
+    logger.log('VK', 'Response to workload excel from vk chat: "' + str(message.chat_id) + '"')
+
+
+@bot.on.chat_message(text=["Нагрузка след. месяц (Excel)", f'[club{VK_CLUB_ID}|@bot_agz] Нагрузка след. месяц (Excel)'])
+async def chat_workload_excel_next(message: Message):
+    logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
+    await message.answer('Генерация файла нагрузки на следующий месяц, подождите...')
+    files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_chat=str(message.chat_id))
+    if not files:
+        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
+    else:
+        peer_id = 2000000000 + message.chat_id
+        for filepath in files:
+            await upload_and_send_doc_vk(message, filepath, peer_id)
+    logger.log('VK', 'Response to workload excel next from vk chat: "' + str(message.chat_id) + '"')
 
 
 @bot.on.chat_message(text=["Вернуться назад", f'[club{VK_CLUB_ID}|@bot_agz] Вернуться назад'])

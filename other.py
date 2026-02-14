@@ -139,7 +139,7 @@ def create_required_dirs():
 
 
 # Отправка почты через yagmail
-def sendMail(to_email, subject, text, html=None):
+def sendMail(to_email, subject, text, html=None, attachments=None):
     try:
         # Подключение к gmail
         user_info = read_config(email='YES')
@@ -152,7 +152,7 @@ def sendMail(to_email, subject, text, html=None):
             signature = f'\n\n\nСайт-инструкция: {URL_INSTRUCTIONS}'
             contents = text + signature
         # Непосредственно отправка письма
-        yag.send(to=to_email, subject=subject, contents=contents)
+        yag.send(to=to_email, subject=subject, contents=contents, attachments=attachments)
         logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
     except Exception as exc:
         logger.log('MAIL', f'Cant send mail to {to_email}: {exc}, wait {MAIL_RETRY_WAIT} sec...')

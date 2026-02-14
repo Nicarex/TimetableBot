@@ -14,6 +14,7 @@ from constants import MESSAGE_PREFIX, MESSAGE_SPLIT_SENTINEL
 from logger import logger
 from other import read_config, get_latest_file, connection_to_sql, sendMail, get_row_value, format_timetable_html
 from timetable import date_request, timetable, workload
+from excel import create_excel_with_workload
 from platform_context import resolve_platform
 
 # Кэш уникальных групп и преподавателей из timetable-db.
@@ -967,4 +968,40 @@ def getting_workload_for_user(next: str = None, email: str = None, vk_id_chat: s
     else:
         logger.log('SQL', f'No saved teachers for {ctx.name} <{ctx.user_id}>')
         return 'Нет сохраненных преподавателей для отправки учебной нагрузки'
+
+
+# Получение учебной нагрузки в виде Excel-файлов для пользователя
+def getting_workload_excel_for_user(next: str = None, email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None, discord: str = None):
+    ctx = resolve_platform(email=email, vk_id_chat=vk_id_chat, vk_id_user=vk_id_user, telegram=telegram, discord=discord)
+    if ctx is None:
+        logger.error('Incorrect workload excel request. No platform specified')
+        return []
+    logger.log('SQL', f'Incoming workload excel request for {ctx.name} = <{ctx.user_id}>')
+    conn = connection_to_sql('user_settings.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(f'SELECT * FROM {ctx.table} WHERE {ctx.id_column} = ?', (ctx.user_id,))
+    row = c.fetchone()
+    c.close()
+    conn.close()
+    if row is None:
+        logger.log('SQL', f'No saved settings for {ctx.name} <{ctx.user_id}>')
+        return []
+    files = []
+    # Генерация для преподавателей
+    if row['teacher'] is not None:
+        teachers = str(row['teacher']).replace('\r', '').split('\n')
+        for t in teachers:
+            result = create_excel_with_workload(teacher=str(t), next=next)
+            if result.endswith('.xlsx'):
+                files.append(result)
+    # Генерация для групп
+    if row['group_id'] is not None:
+        groups = str(row['group_id']).replace('\r', '').split('\n')
+        for g in groups:
+            result = create_excel_with_workload(group_id=str(g), next=next)
+            if result.endswith('.xlsx'):
+                files.append(result)
+    logger.log('SQL', f'Generated {len(files)} workload excel files for {ctx.name} <{ctx.user_id}>')
+    return files
 

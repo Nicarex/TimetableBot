@@ -8,7 +8,8 @@ import aiohttp.client_exceptions
 from aiogram import Bot, Dispatcher, types, Router
 from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
 from other import read_config
-from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
+from aiogram.types import FSInputFile
+from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, getting_workload_excel_for_user
 from logger import logger
 from calendar_timetable import show_calendar_url_to_user
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO
@@ -28,6 +29,7 @@ router = Router()
 KEYBOARD_USER_MAIN = types.ReplyKeyboardMarkup(
     keyboard=[
         [types.KeyboardButton(text='Текущая неделя'), types.KeyboardButton(text='Следующая неделя')],
+        [types.KeyboardButton(text='Нагрузка (Excel)'), types.KeyboardButton(text='Нагрузка след. месяц (Excel)')],
         [types.KeyboardButton(text='Календарь'), types.KeyboardButton(text='Настройки')]
     ],
     resize_keyboard=True
@@ -100,6 +102,34 @@ async def timetable_next(message: types.Message):
         else:
             await message.answer(part)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
+
+
+@router.message(lambda message: message.text in ["Нагрузка (Excel)", "/нагрузка", "нагрузка excel"])
+async def workload_excel_now(message: types.Message):
+    logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
+    await message.answer('Генерация файла нагрузки, подождите...', reply_markup=KEYBOARD_USER_MAIN)
+    files = await run_sync(getting_workload_excel_for_user, telegram=str(message.chat.id))
+    if not files:
+        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
+    else:
+        for filepath in files:
+            document = FSInputFile(filepath)
+            await bot.send_document(chat_id=message.chat.id, document=document)
+    logger.log('TELEGRAM', f'Response to workload excel from: <{str(message.chat.id)}>')
+
+
+@router.message(lambda message: message.text in ["Нагрузка след. месяц (Excel)", "/нагрузка следующий", "нагрузка следующий месяц excel"])
+async def workload_excel_next(message: types.Message):
+    logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
+    await message.answer('Генерация файла нагрузки на следующий месяц, подождите...', reply_markup=KEYBOARD_USER_MAIN)
+    files = await run_sync(getting_workload_excel_for_user, next='YES', telegram=str(message.chat.id))
+    if not files:
+        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
+    else:
+        for filepath in files:
+            document = FSInputFile(filepath)
+            await bot.send_document(chat_id=message.chat.id, document=document)
+    logger.log('TELEGRAM', f'Response to workload excel next from: <{str(message.chat.id)}>')
 
 
 @router.message(lambda message: message.text in ["Настройки", '/настройки', '/Настройки', 'настройки'])
