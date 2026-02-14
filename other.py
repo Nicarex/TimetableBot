@@ -15,6 +15,47 @@ from constants import (
 )
 
 
+def strip_email_quotes(text: str) -> str:
+    """Извлекает только последнее сообщение из цепочки email, отбрасывая цитируемый текст."""
+    import re
+    if not text:
+        return text
+    lines = text.split('\n')
+    result_lines = []
+    for line in lines:
+        # Строка с цитатой (начинается с ">")
+        if line.startswith('>'):
+            break
+        # Маркеры начала цитируемого сообщения
+        # "On ... wrote:", "... написал(а):", "---- Original Message ----", и т.д.
+        if re.match(r'^On .+ wrote:\s*$', line):
+            break
+        if re.match(r'^.+\d{4}.+написал', line):
+            break
+        if re.match(r'^-{2,}\s*(Original Message|Forwarded message|Пересланное сообщение|Исходное сообщение)', line, re.IGNORECASE):
+            break
+        if re.match(r'^_{2,}$', line):
+            break
+        result_lines.append(line)
+    return '\n'.join(result_lines).strip()
+
+
+def strip_html_quotes(html: str) -> str:
+    """Извлекает только последнее сообщение из HTML-цепочки email."""
+    import re
+    if not html:
+        return html
+    # Gmail оборачивает цитируемый текст в <div class="gmail_quote">
+    html = re.split(r'<div\s+class="gmail_quote"', html, maxsplit=1)[0]
+    # Outlook: <div id="appendonsend"> или <div id="divRplyFwdMsg">
+    html = re.split(r'<div\s+id="(appendonsend|divRplyFwdMsg)"', html, maxsplit=1, flags=re.IGNORECASE)[0]
+    # Общий паттерн: <blockquote> часто используется для цитат
+    html = re.split(r'<blockquote', html, maxsplit=1, flags=re.IGNORECASE)[0]
+    # <hr> часто разделяет оригинальное сообщение
+    html = re.split(r'<hr\s*/?\s*>', html, maxsplit=1, flags=re.IGNORECASE)[0]
+    return html.strip()
+
+
 def format_timetable_html(text: str) -> str:
     """Конвертирует текстовое расписание в HTML с разметкой для email."""
     import re

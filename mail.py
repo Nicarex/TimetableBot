@@ -1,6 +1,6 @@
 import imaplib
 from socket import gaierror
-from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail
+from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail, strip_email_quotes, strip_html_quotes
 import os
 import time
 from constants import MAIL_RETRY_WAIT
@@ -55,9 +55,9 @@ def processingMail():
                 logger.log('MAIL', 'Settings message from ' + msg.from_)
                 answer = ''
                 if msg.text != '':
-                    text = str(msg.text).replace('\n', '')
+                    text = strip_email_quotes(str(msg.text)).replace('\n', '')
                 else:
-                    text = str(msg.html).replace('\n', '')
+                    text = strip_html_quotes(str(msg.html)).replace('\n', '')
                 if text.lower().find('текущие') != -1:
                     answer = display_saved_settings(email=msg.from_)
                 # Если нужно добавить параметры, а не посмотреть текущие
@@ -89,9 +89,9 @@ def processingMail():
             for msg in messages_send:
                 logger.log('MAIL', 'Send message from ' + msg.from_)
                 if msg.text != '':
-                    text = str(msg.text).lower()
+                    text = strip_email_quotes(str(msg.text)).lower()
                 else:
-                    text = str(msg.html).lower()
+                    text = strip_html_quotes(str(msg.html)).lower()
                 answer = ''
                 if text.find('текущ') != -1:
                     answer += str(getting_timetable_for_user(email=msg.from_))
