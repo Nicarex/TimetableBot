@@ -99,7 +99,11 @@ class _MockDateTime:
     
     def format(self, fmt_str):
         if fmt_str == 'D-MM-YYYY':
-            return self.dt.strftime('%-d-%m-%Y').lstrip('0').replace('0', '', 1) if self.dt.day < 10 else self.dt.strftime('%-d-%m-%Y')
+            # Формат без ведущего нуля в дне
+            day = str(self.dt.day)
+            month = f'{self.dt.month:02d}'
+            year = self.dt.year
+            return f'{day}-{month}-{year}'
         elif fmt_str == 'DD.MM.YYYY':
             return self.dt.strftime('%d.%m.%Y')
         elif fmt_str == 'MMMM':
@@ -111,10 +115,25 @@ class _MockDateTime:
     def isoweekday(self):
         return self.dt.isoweekday()
     
+    def __add__(self, other):
+        """Поддержка операции _MockDateTime + timedelta."""
+        if isinstance(other, timedelta):
+            return _MockDateTime(self.dt + other)
+        return NotImplemented
+    
+    def __radd__(self, other):
+        """Поддержка операции timedelta + _MockDateTime."""
+        if isinstance(other, timedelta):
+            return _MockDateTime(other + self.dt)
+        return NotImplemented
+    
     def __sub__(self, other):
+        """Поддержка операции _MockDateTime - timedelta и _MockDateTime - _MockDateTime."""
         if isinstance(other, timedelta):
             return _MockDateTime(self.dt - other)
-        return self.dt - other.dt
+        elif isinstance(other, _MockDateTime):
+            return self.dt - other.dt
+        return NotImplemented
     
     def __eq__(self, other):
         if isinstance(other, _MockDateTime):
