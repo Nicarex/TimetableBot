@@ -108,13 +108,21 @@ async def timetable_next(message: types.Message):
 async def workload_excel_now(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
     await message.answer('Генерация файла нагрузки, подождите...', reply_markup=KEYBOARD_USER_MAIN)
-    files = await run_sync(getting_workload_excel_for_user, telegram=str(message.chat.id))
-    if not files:
-        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
-    else:
-        for filepath in files:
-            document = FSInputFile(filepath)
-            await bot.send_document(chat_id=message.chat.id, document=document)
+    try:
+        files = await run_sync(getting_workload_excel_for_user, telegram=str(message.chat.id))
+        if not files:
+            await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
+        else:
+            for filepath in files:
+                try:
+                    document = FSInputFile(filepath)
+                    await bot.send_document(chat_id=message.chat.id, document=document)
+                except Exception as e:
+                    logger.error(f'Error sending workload file {filepath}: {str(e)}')
+                    await message.answer(f'Ошибка при отправке файла: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
+    except Exception as e:
+        logger.error(f'Error in workload_excel_now: {str(e)}')
+        await message.answer(f'Ошибка при генерации файла нагрузки: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
     logger.log('TELEGRAM', f'Response to workload excel from: <{str(message.chat.id)}>')
 
 
@@ -122,13 +130,21 @@ async def workload_excel_now(message: types.Message):
 async def workload_excel_next(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
     await message.answer('Генерация файла нагрузки на следующий месяц, подождите...', reply_markup=KEYBOARD_USER_MAIN)
-    files = await run_sync(getting_workload_excel_for_user, next='YES', telegram=str(message.chat.id))
-    if not files:
-        await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
-    else:
-        for filepath in files:
-            document = FSInputFile(filepath)
-            await bot.send_document(chat_id=message.chat.id, document=document)
+    try:
+        files = await run_sync(getting_workload_excel_for_user, next='YES', telegram=str(message.chat.id))
+        if not files:
+            await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
+        else:
+            for filepath in files:
+                try:
+                    document = FSInputFile(filepath)
+                    await bot.send_document(chat_id=message.chat.id, document=document)
+                except Exception as e:
+                    logger.error(f'Error sending workload file {filepath}: {str(e)}')
+                    await message.answer(f'Ошибка при отправке файла: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
+    except Exception as e:
+        logger.error(f'Error in workload_excel_next: {str(e)}')
+        await message.answer(f'Ошибка при генерации файла нагрузки: {str(e)}', reply_markup=KEYBOARD_USER_MAIN)
     logger.log('TELEGRAM', f'Response to workload excel next from: <{str(message.chat.id)}>')
 
 
@@ -252,6 +268,7 @@ async def error_bot_blocked(*args, **kwargs):
     passed). Accept arbitrary args/kwargs and extract an update and an
     exception when possible so the handler never raises TypeError.
     """
+    import traceback
     update = None
     exception = None
 
@@ -279,7 +296,10 @@ async def error_bot_blocked(*args, **kwargs):
             if exception is None and isinstance(arg, BaseException):
                 exception = arg
 
-    logger.log('TELEGRAM', f'Bot error handler triggered, update: {str(update)}, exception: {str(exception)}')
+    if exception:
+        logger.error(f'Bot error handler triggered with exception: {str(exception)}\n{traceback.format_exc()}')
+    else:
+        logger.log('TELEGRAM', f'Bot error handler triggered, update: {str(update)}, exception: {str(exception)}')
     return True
 
 

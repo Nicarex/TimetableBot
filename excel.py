@@ -3,6 +3,7 @@ from other import connection_to_sql, get_latest_file, get_row_value
 from logger import logger
 import pendulum
 import xlsxwriter
+import os
 from constants import TIMEZONE, GLOB_TIMETABLE_DB, MONTH_NAMES, LESSON_TIMES_DISPLAY
 
 
@@ -114,6 +115,9 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
     safe_name = (teacher or group_id).replace('/', '').replace('\\', '').replace(' ', '_')
     suffix = '_next' if next else ''
     filepath = f'timetable-files/workload_{safe_name}{suffix}.xlsx'
+
+    # Создаем директорию, если ее нет
+    os.makedirs(os.path.dirname(filepath) or '.', exist_ok=True)
 
     workbook = xlsxwriter.Workbook(filepath)
     worksheet = workbook.add_worksheet('Нагрузка')
