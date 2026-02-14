@@ -1,3 +1,4 @@
+import asyncio
 import asyncio.exceptions
 import aiohttp.client_exceptions
 import random
@@ -459,6 +460,8 @@ async def group_join_handler(event: GroupTypes.GroupJoin):
 def start_vk_server():
     logger.log('VK', 'VK server started...')
     try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         bot.run_forever()
     except KeyboardInterrupt:
         logger.log('VK', 'VK server has been stopped by Ctrl+C')
