@@ -11,3 +11,7 @@ icalendar==7.0.0
 PyGithub==2.8.1
 nextcord==3.1.1
 xlsxwriter==3.2.9
+
+# Для тестирования
+pytest==7.4.4
+pytest-asyncio==0.23.1

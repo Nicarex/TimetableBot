@@ -68,3 +68,17 @@ _github.Github = lambda *a, **k: None
 _ical = sys.modules['icalendar']
 _ical.Calendar = type('Calendar', (), {'add': lambda s, *a, **k: None, 'add_component': lambda s, *a: None, 'to_ical': lambda s: b''})
 _ical.Event = type('Event', (), {'add': lambda s, *a, **k: None, '__setitem__': lambda s, k, v: None})
+
+# pytest-asyncio конфигурация для async тестов
+import pytest
+
+pytest_plugins = ('pytest_asyncio',)
+
+
+@pytest.fixture(scope='session')
+def event_loop():
+    """Создает event loop для async тестов."""
+    import asyncio
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
