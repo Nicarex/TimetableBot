@@ -1,3 +1,4 @@
+import nextcord
 from nextcord import Interaction, SlashOption
 from nextcord.ext import commands
 from other import read_config, connection_to_sql
@@ -9,7 +10,9 @@ from constants import URL_INSTRUCTIONS, AUTHOR_INFO, DISCORD_ADMIN_USERNAME
 from messaging import split_response
 
 
-bot = commands.Bot(command_prefix="/")
+intents = nextcord.Intents.default()
+intents.message_content = True
+bot = commands.Bot(command_prefix="/", intents=intents)
 
 
 @bot.slash_command(description="Начальное сообщение")
