@@ -15,6 +15,54 @@ from constants import (
 )
 
 
+def format_timetable_html(text: str) -> str:
+    """Конвертирует текстовое расписание в HTML с разметкой для email."""
+    import re
+    lines = text.split('\n')
+    html_parts = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            html_parts.append('<br>')
+            continue
+
+        # Заголовок: "Преподаватель ..." или "Группа ..."
+        if stripped.startswith('Преподаватель ') or stripped.startswith('Группа '):
+            html_parts.append(
+                f'<h2 style="color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px; margin-top: 25px;">{stripped}</h2>'
+            )
+        # Информационное сообщение об изменении
+        elif 'было изменено' in stripped:
+            html_parts.append(
+                f'<p style="color: #e67e22; font-weight: bold; margin: 10px 0;">{stripped}</p>'
+            )
+        # День недели (содержит дату в формате DD.MM.YYYY)
+        elif re.search(r'\d{2}\.\d{2}\.\d{4}', stripped) and not re.match(r'^\d+\.', stripped):
+            html_parts.append(
+                f'<h3 style="color: #2980b9; margin: 15px 0 5px 0; background-color: #eaf2f8; padding: 5px 10px; border-radius: 4px;">{stripped}</h3>'
+            )
+        # Строка занятия: "1. -" (пустая пара)
+        elif re.match(r'^\d+\.\s*-\s*$', stripped):
+            html_parts.append(
+                f'<div style="padding: 3px 10px; color: #bbb;">{stripped}</div>'
+            )
+        # Строка занятия с данными: "1. 08:30..."
+        elif re.match(r'^\d+\.', stripped):
+            html_parts.append(
+                f'<div style="padding: 4px 10px; border-left: 3px solid #3498db; margin: 2px 0; background-color: #fafafa;">{stripped}</div>'
+            )
+        # Сообщение "Не найдено занятий..."
+        elif 'Не найдено занятий' in stripped or 'Нет сохраненных' in stripped:
+            html_parts.append(
+                f'<p style="color: #999; font-style: italic;">{stripped}</p>'
+            )
+        else:
+            html_parts.append(f'<p>{stripped}</p>')
+
+    return ''.join(html_parts)
+
+
 def read_config(email: str = None, vk: str = None, vk_send: str = None, github: str = None, telegram: str = None, discord: str = None):
     # Загрузка данных из конфига
     config = configparser.ConfigParser()
@@ -50,15 +98,20 @@ def create_required_dirs():
 
 
 # Отправка почты через yagmail
-def sendMail(to_email, subject, text):
+def sendMail(to_email, subject, text, html=None):
     try:
         # Подключение к gmail
         user_info = read_config(email='YES')
         yag = yagmail.SMTP(user=user_info[1], password=user_info[2])
-        # Подпись, которая добавляется в конец каждого отправленного сообщения
-        signature = f'\n\n\nСайт-инструкция: {URL_INSTRUCTIONS}'
+        # Подпись
+        if html is not None:
+            signature_html = f'<br><br><p style="color: #888; font-size: 12px;">Сайт-инструкция: <a href="{URL_INSTRUCTIONS}">{URL_INSTRUCTIONS}</a></p>'
+            contents = f'<html><body style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">{html}{signature_html}</body></html>'
+        else:
+            signature = f'\n\n\nСайт-инструкция: {URL_INSTRUCTIONS}'
+            contents = text + signature
         # Непосредственно отправка письма
-        yag.send(to=to_email, subject=subject, contents=text + signature)
+        yag.send(to=to_email, subject=subject, contents=contents)
         logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
     except Exception as exc:
         logger.log('MAIL', f'Cant send mail to {to_email}: {exc}, wait {MAIL_RETRY_WAIT} sec...')

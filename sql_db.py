@@ -11,7 +11,7 @@ from vkbottle import API
 from calendar_timetable import create_calendar_file_with_timetable, download_calendar_file_to_github
 from constants import MESSAGE_PREFIX, MESSAGE_SPLIT_SENTINEL
 from logger import logger
-from other import read_config, get_latest_file, connection_to_sql, sendMail, get_row_value
+from other import read_config, get_latest_file, connection_to_sql, sendMail, get_row_value, format_timetable_html
 from timetable import date_request, timetable, workload
 from platform_context import resolve_platform
 
@@ -313,7 +313,8 @@ def send_notifications_email(group_list_current_week: list, group_list_next_week
                     else:
                         answer += timetable(group_id=item, lesson_time='YES', next='YES') + '\n\n'
         if answer != '':
-            sendMail(to_email=user['email'], subject='Изменения в расписании', text=answer)
+            html_answer = format_timetable_html(answer)
+            sendMail(to_email=user['email'], subject='Изменения в расписании', text='', html=html_answer)
     return True
 
 
@@ -902,7 +903,10 @@ def getting_timetable_for_user(next: str = None, email: str = None, vk_id_chat: 
             for i in groups:
                 groups_answer += separator + timetable(group_id=str(i), next=next, lesson_time=lesson_time) + '\n'
         logger.log('SQL', f'Response to timetable request for {ctx.name} <{ctx.user_id}>')
-        return teachers_answer + groups_answer
+        result = teachers_answer + groups_answer
+        if ctx.name == 'email':
+            return format_timetable_html(result)
+        return result
     else:
         logger.log('SQL', f'No saved groups or teachers for {ctx.name} <{ctx.user_id}>')
         return 'Нет сохраненных групп или преподавателей для отправки расписания'

@@ -100,7 +100,7 @@ def processingMail():
                 if answer == '':
                     sendMail(to_email=msg.from_, subject=msg.subject, text='Не удалось распознать ваш запрос\nВозможно вы сделали орфографическую ошибку')
                 else:
-                    sendMail(to_email=msg.from_, subject=msg.subject, text=answer)
+                    sendMail(to_email=msg.from_, subject=msg.subject, text='', html=answer)
 
             mailbox.logout()  # Выход
             # logger.debug('End work')
