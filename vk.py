@@ -153,15 +153,12 @@ async def upload_and_send_doc_vk(message: Message, filepath: str, peer_id: int):
             file_source=filepath,
             peer_id=peer_id,
         )
-        await message.answer(
-            message='Файл нагрузки',
-            attachment=doc_attachment
-        )
+        await message.answer('Файл нагрузки', attachment=doc_attachment)
         logger.log('VK', f'Successfully sent document {filepath} to peer {peer_id}')
     except VKAPIError as e:
         error_str = str(e)
         # Проверяем на ошибку доступа (error_code=15)
-        if '15' in error_str or 'error_code=15' in error_str or e.error == 15:
+        if 'error_code=15' in error_str or 'Error 15' in error_str:
             logger.error(f'VK API Error 15 (Access Denied): Insufficient permissions to send documents. Error: {error_str}')
             await message.answer('⚠️ К сожалению, у бота недостаточно прав для отправки документов в VK. Пожалуйста, свяжитесь с администратором группы.')
         else:
