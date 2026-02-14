@@ -1,6 +1,7 @@
 import asyncio
 import asyncio.exceptions
 import aiohttp.client_exceptions
+import functools
 import random
 import time
 from logger import logger
@@ -11,6 +12,12 @@ from calendar_timetable import show_calendar_url_to_user
 from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO, VK_CLUB_ID
 from messaging import split_response
+
+
+async def run_sync(func, *args, **kwargs):
+    """Запускает синхронную функцию в thread pool, не блокируя event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
 
 
 group_token = read_config(vk='YES')
@@ -134,7 +141,7 @@ KEYBOARD_CHAT_LESSON_TIME = (
 @bot.on.private_message(text="Текущая неделя")
 async def user_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    parts = split_response(getting_timetable_for_user(vk_id_user=str(message.from_id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, vk_id_user=str(message.from_id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
@@ -146,7 +153,7 @@ async def user_timetable_now(message: Message):
 @bot.on.private_message(text="Следующая неделя")
 async def user_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    parts = split_response(getting_timetable_for_user(next='YES', vk_id_user=str(message.from_id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, next='YES', vk_id_user=str(message.from_id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
@@ -158,7 +165,7 @@ async def user_timetable_next(message: Message):
 @bot.on.private_message(text="Учебная нагрузка на текущий месяц")
 async def user_work_load_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    parts = split_response(getting_workload_for_user(vk_id_user=str(message.from_id)))
+    parts = split_response(await run_sync(getting_workload_for_user, vk_id_user=str(message.from_id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
@@ -170,7 +177,7 @@ async def user_work_load_now(message: Message):
 @bot.on.private_message(text="Учебная нагрузка на следующий месяц")
 async def user_work_load_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    parts = split_response(getting_workload_for_user(next='YES', vk_id_user=str(message.from_id)))
+    parts = split_response(await run_sync(getting_workload_for_user, next='YES', vk_id_user=str(message.from_id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
@@ -191,7 +198,7 @@ async def user_start_message(message: Message):
 @bot.on.private_message(text="Настройки")
 async def user_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = display_saved_settings(vk_id_user=str(message.from_id))
+    answer = await run_sync(display_saved_settings, vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -207,7 +214,7 @@ async def user_calendar_settings(message: Message):
 async def user_calendar_response(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     await message.answer('Ваш запрос выполняется, пожалуйста, подождите...', keyboard=KEYBOARD_USER_MAIN)
-    answer = show_calendar_url_to_user(vk_id_user=str(message.from_id))
+    answer = await run_sync(show_calendar_url_to_user, vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -222,7 +229,7 @@ async def user_noti_settings(message: Message):
 @bot.on.private_message(text="Включить уведомления")
 async def user_noti_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = enable_and_disable_notifications(enable='YES', vk_id_user=str(message.from_id))
+    answer = await run_sync(enable_and_disable_notifications, enable='YES', vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -230,7 +237,7 @@ async def user_noti_enable(message: Message):
 @bot.on.private_message(text="Выключить уведомления")
 async def user_noti_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = enable_and_disable_notifications(disable='YES', vk_id_user=str(message.from_id))
+    answer = await run_sync(enable_and_disable_notifications, disable='YES', vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -245,7 +252,7 @@ async def user_lesson_time_settings(message: Message):
 @bot.on.private_message(text="Включить отображение времени занятий")
 async def user_lesson_time_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = enable_and_disable_lesson_time(enable='YES', vk_id_user=str(message.from_id))
+    answer = await run_sync(enable_and_disable_lesson_time, enable='YES', vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -253,7 +260,7 @@ async def user_lesson_time_enable(message: Message):
 @bot.on.private_message(text="Выключить отображение времени занятий")
 async def user_lesson_time_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = enable_and_disable_lesson_time(disable='YES', vk_id_user=str(message.from_id))
+    answer = await run_sync(enable_and_disable_lesson_time, disable='YES', vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -261,7 +268,7 @@ async def user_lesson_time_disable(message: Message):
 @bot.on.private_message(text="Удалить параметры групп и преподавателей")
 async def user_delete_saved_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = delete_all_saved_groups_and_teachers(vk_id_user=str(message.from_id))
+    answer = await run_sync(delete_all_saved_groups_and_teachers, vk_id_user=str(message.from_id))
     await message.answer(answer, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
@@ -290,7 +297,7 @@ async def user_instruction_link(message: Message):
 @bot.on.private_message(text="<groups_and_teachers>")
 async def user_search_in_request(message: Message, groups_and_teachers: str):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    search_response = search_group_and_teacher_in_request(request=str(groups_and_teachers), vk_id_user=str(message.from_id))
+    search_response = await run_sync(search_group_and_teacher_in_request, request=str(groups_and_teachers), vk_id_user=str(message.from_id))
     if search_response is False:
         answer = 'Нет распознанных групп или преподавателей, если вы их вводили\n\nНапоминаю, что для успешного добавления параметров нужно придерживаться строгих правил ввода, которые можно посмотреть в инструкции\n'
     else:
@@ -303,7 +310,7 @@ async def user_search_in_request(message: Message, groups_and_teachers: str):
 @bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая', f"[club{VK_CLUB_ID}|@bot_agz] Текущая неделя", f"[club{VK_CLUB_ID}|@bot_agz] текущая неделя"])
 async def chat_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    parts = split_response(getting_timetable_for_user(vk_id_chat=str(message.chat_id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, vk_id_chat=str(message.chat_id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, keyboard=KEYBOARD_CHAT_MAIN)
@@ -315,7 +322,7 @@ async def chat_timetable_now(message: Message):
 @bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая', f"[club{VK_CLUB_ID}|@bot_agz] Следующая неделя", f"[club{VK_CLUB_ID}|@bot_agz] следующая неделя"])
 async def chat_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    parts = split_response(getting_timetable_for_user(next='YES', vk_id_chat=str(message.chat_id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, next='YES', vk_id_chat=str(message.chat_id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, keyboard=KEYBOARD_CHAT_MAIN)
@@ -334,7 +341,7 @@ async def chat_start_message(message: Message):
 @bot.on.chat_message(text=['Настройки', 'настройки', '/настройки', '/Настройки', f'[club{VK_CLUB_ID}|@bot_agz] настройки', f'[club{VK_CLUB_ID}|@bot_agz] Настройки'])
 async def chat_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = display_saved_settings(vk_id_chat=str(message.chat_id))
+    answer = await run_sync(display_saved_settings, vk_id_chat=str(message.chat_id))
     await message.answer(message=answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -350,7 +357,7 @@ async def chat_calendar_settings(message: Message):
 async def chat_calendar_response(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Запрос выполняется, пожалуйста, подождите...')
-    answer = show_calendar_url_to_user(vk_id_chat=str(message.chat_id))
+    answer = await run_sync(show_calendar_url_to_user, vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -365,7 +372,7 @@ async def chat_noti_settings(message: Message):
 @bot.on.chat_message(text=["Включить уведомления", f'[club{VK_CLUB_ID}|@bot_agz] Включить уведомления'])
 async def chat_noti_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = enable_and_disable_notifications(enable='YES', vk_id_chat=str(message.chat_id))
+    answer = await run_sync(enable_and_disable_notifications, enable='YES', vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -373,7 +380,7 @@ async def chat_noti_enable(message: Message):
 @bot.on.chat_message(text=["Выключить уведомления", f'[club{VK_CLUB_ID}|@bot_agz] Выключить уведомления'])
 async def chat_noti_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = enable_and_disable_notifications(disable='YES', vk_id_chat=str(message.chat_id))
+    answer = await run_sync(enable_and_disable_notifications, disable='YES', vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -388,7 +395,7 @@ async def user_lesson_time_settings(message: Message):
 @bot.on.chat_message(text=["Включить отображение времени занятий", f'[club{VK_CLUB_ID}|@bot_agz] Включить отображение времени занятий'])
 async def user_lesson_time_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = enable_and_disable_lesson_time(enable='YES', vk_id_chat=str(message.chat_id))
+    answer = await run_sync(enable_and_disable_lesson_time, enable='YES', vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -396,7 +403,7 @@ async def user_lesson_time_enable(message: Message):
 @bot.on.chat_message(text=["Выключить отображение времени занятий", f'[club{VK_CLUB_ID}|@bot_agz] Выключить отображение времени занятий'])
 async def user_lesson_time_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = enable_and_disable_lesson_time(disable='YES', vk_id_chat=str(message.chat_id))
+    answer = await run_sync(enable_and_disable_lesson_time, disable='YES', vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -404,7 +411,7 @@ async def user_lesson_time_disable(message: Message):
 @bot.on.chat_message(text=["Удалить параметры групп и преподавателей", f'[club{VK_CLUB_ID}|@bot_agz] Удалить параметры групп и преподавателей'])
 async def chat_delete_saved_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = delete_all_saved_groups_and_teachers(vk_id_chat=str(message.chat_id))
+    answer = await run_sync(delete_all_saved_groups_and_teachers, vk_id_chat=str(message.chat_id))
     await message.answer(answer, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
@@ -428,7 +435,7 @@ async def chat_search_in_request(message: Message, groups_and_teachers: str):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     if str(groups_and_teachers).find('@all') != -1 or str(groups_and_teachers).find('*all') != -1 or str(groups_and_teachers).find('@все') != -1 or str(groups_and_teachers).find('*все') != -1:
         return False
-    search_response = search_group_and_teacher_in_request(request=str(groups_and_teachers), vk_id_chat=str(message.chat_id))
+    search_response = await run_sync(search_group_and_teacher_in_request, request=str(groups_and_teachers), vk_id_chat=str(message.chat_id))
     if search_response is False:
         answer = 'Нет распознанных групп или преподавателей, если вы их вводили\n\nНапоминаю, что для успешного добавления параметров нужно придерживаться строгих правил ввода, которые можно посмотреть в инструкции\n'
     else:

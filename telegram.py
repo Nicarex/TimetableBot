@@ -1,4 +1,5 @@
 import asyncio
+import functools
 import socket
 import time
 
@@ -12,6 +13,12 @@ from logger import logger
 from calendar_timetable import show_calendar_url_to_user
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO
 from messaging import split_response
+
+
+async def run_sync(func, *args, **kwargs):
+    """Запускает синхронную функцию в thread pool, не блокируя event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
 
 token = read_config(telegram='YES')
 bot = Bot(token=token)
@@ -74,7 +81,7 @@ async def echo(message: types.Message):
 @router.message(lambda message: message.text in ["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая'])
 async def timetable_now(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    parts = split_response(getting_timetable_for_user(telegram=str(message.chat.id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, telegram=str(message.chat.id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, reply_markup=KEYBOARD_USER_MAIN)
@@ -86,7 +93,7 @@ async def timetable_now(message: types.Message):
 @router.message(lambda message: message.text in ["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая'])
 async def timetable_next(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    parts = split_response(getting_timetable_for_user(next='YES', telegram=str(message.chat.id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, next='YES', telegram=str(message.chat.id)))
     for i, part in enumerate(parts):
         if i == len(parts) - 1:
             await message.answer(part, reply_markup=KEYBOARD_USER_MAIN)
@@ -98,7 +105,7 @@ async def timetable_next(message: types.Message):
 @router.message(lambda message: message.text in ["Настройки", '/настройки', '/Настройки', 'настройки'])
 async def settings(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = display_saved_settings(telegram=str(message.chat.id))
+    answer = await run_sync(display_saved_settings, telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -114,7 +121,7 @@ async def calendar_settings(message: types.Message):
 async def calendar_response(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
     await message.answer('Ваш запрос выполняется, пожалуйста, подождите...', reply_markup=KEYBOARD_USER_MAIN)
-    answer = show_calendar_url_to_user(telegram=str(message.chat.id))
+    answer = await run_sync(show_calendar_url_to_user, telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_MAIN)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -129,7 +136,7 @@ async def noti_settings(message: types.Message):
 @router.message(lambda message: message.text in ["Включить уведомления", "/Включить уведомления", "/включить уведомления", "включить уведомления"])
 async def noti_enable(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = enable_and_disable_notifications(enable='YES', telegram=str(message.chat.id))
+    answer = await run_sync(enable_and_disable_notifications, enable='YES', telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -137,7 +144,7 @@ async def noti_enable(message: types.Message):
 @router.message(lambda message: message.text in ["Выключить уведомления", "/Выключить уведомления", "/выключить уведомления", "выключить уведомления"])
 async def noti_disable(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = enable_and_disable_notifications(disable='YES', telegram=str(message.chat.id))
+    answer = await run_sync(enable_and_disable_notifications, disable='YES', telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -152,7 +159,7 @@ async def lesson_time_settings(message: types.Message):
 @router.message(lambda message: message.text in ["Включить отображение времени занятий", "/Включить отображение времени занятий", "/включить отображение времени занятий", "включить отображение времени занятий"])
 async def lesson_time_enable(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = enable_and_disable_lesson_time(enable='YES', telegram=str(message.chat.id))
+    answer = await run_sync(enable_and_disable_lesson_time, enable='YES', telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -160,7 +167,7 @@ async def lesson_time_enable(message: types.Message):
 @router.message(lambda message: message.text in ["Выключить отображение времени занятий", "/Выключить отображение времени занятий", "/выключить отображение времени занятий", "выключить отображение времени занятий"])
 async def lesson_time_disable(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = enable_and_disable_lesson_time(disable='YES', telegram=str(message.chat.id))
+    answer = await run_sync(enable_and_disable_lesson_time, disable='YES', telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -168,7 +175,7 @@ async def lesson_time_disable(message: types.Message):
 @router.message(lambda message: message.text in ["Удалить параметры групп и преподавателей", "/Удалить параметры групп и преподавателей", "/удалить параметры групп и преподавателей", "удалить параметры групп и преподавателей"])
 async def delete_saved_settings(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = delete_all_saved_groups_and_teachers(telegram=str(message.chat.id))
+    answer = await run_sync(delete_all_saved_groups_and_teachers, telegram=str(message.chat.id))
     await message.answer(answer, reply_markup=KEYBOARD_USER_MAIN)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
@@ -197,7 +204,7 @@ async def instruction_link(message: types.Message):
 @router.message()
 async def search_in_request(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    search_response = search_group_and_teacher_in_request(request=str(message.text), telegram=str(message.chat.id))
+    search_response = await run_sync(search_group_and_teacher_in_request, request=str(message.text), telegram=str(message.chat.id))
     if search_response is False:
         answer = 'Нет распознанных групп или преподавателей, если вы их вводили\n\nНапоминаю, что для успешного добавления параметров нужно придерживаться строгих правил ввода, которые можно посмотреть в инструкции\n'
     else:

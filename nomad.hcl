@@ -43,6 +43,7 @@ job "timebot" {
             }
 
             resources {
+                cores = 6
                 memory = 6144
             }
 

@@ -3,6 +3,7 @@ import os
 import platform
 import random
 import sqlite3
+import threading
 from glob import iglob
 from pathlib import Path
 
@@ -14,6 +15,38 @@ from logger import logger
 from other import read_config, get_latest_file, connection_to_sql, sendMail, get_row_value, format_timetable_html
 from timetable import date_request, timetable, workload
 from platform_context import resolve_platform
+
+# Кэш уникальных групп и преподавателей из timetable-db.
+# Обновляется только при смене файла БД, что сильно ускоряет поиск.
+_timetable_cache_lock = threading.Lock()
+_timetable_cache = {
+    'db_path': None,        # путь к БД, для которой построен кэш
+    'groups': set(),        # уникальные группы
+    'teachers': set(),      # уникальные преподаватели
+}
+
+
+def _refresh_timetable_cache(db_path: str):
+    """Загружает уникальные группы и преподавателей из БД в кэш (только если БД изменилась)."""
+    with _timetable_cache_lock:
+        if _timetable_cache['db_path'] == db_path:
+            return
+        try:
+            conn = connection_to_sql(db_path)
+            conn.row_factory = sqlite3.Row
+            c = conn.cursor()
+            c.execute('SELECT DISTINCT "Group" FROM timetable WHERE "Group" IS NOT NULL AND "Group" != \' \'')
+            groups = {str(row[0]) for row in c.fetchall()}
+            c.execute('SELECT DISTINCT "Name" FROM timetable WHERE "Name" IS NOT NULL AND "Name" != \' \'')
+            teachers = {str(row[0]) for row in c.fetchall()}
+            c.close()
+            conn.close()
+            _timetable_cache['db_path'] = db_path
+            _timetable_cache['groups'] = groups
+            _timetable_cache['teachers'] = teachers
+            logger.log('SQL', f'Timetable cache refreshed: {len(groups)} groups, {len(teachers)} teachers')
+        except Exception as e:
+            logger.error(f'Failed to refresh timetable cache: {e}')
 
 # Инициализация
 vk_token = read_config(vk='YES')
@@ -645,25 +678,16 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
     if timetable_db is None:
         logger.error('Cant search groups and teachers in request because no timetable-db exists')
         return 'Произошла ошибка при выполнении вашего запроса, пожалуйста, попробуйте позже'
-    conn = connection_to_sql(timetable_db)
-    conn.row_factory = sqlite3.Row
-    c = conn.cursor()
-    c.execute('SELECT * FROM timetable')
-    timetable_rows = c.fetchall()
-    # Ищет группы и преподавателей для переданного запроса
-    matched_group = []
-    matched_teacher = []
-    for row in timetable_rows:
-        name = str(row['Name'])
-        group = str(row['Group'])
-        if request.find(name) != -1 and name not in matched_teacher and name != ' ':
-            matched_teacher.append(name)
-        if request.find(group) != -1 and group not in matched_group:
-            matched_group.append(group)
+    # Обновляем кэш (только при смене файла БД — обычно раз в день)
+    _refresh_timetable_cache(timetable_db)
+    # Ищет группы и преподавателей для переданного запроса по кэшу (без SELECT *)
+    with _timetable_cache_lock:
+        cached_groups = _timetable_cache['groups'].copy()
+        cached_teachers = _timetable_cache['teachers'].copy()
+    matched_group = [g for g in cached_groups if request.find(g) != -1]
+    matched_teacher = [t for t in cached_teachers if request.find(t) != -1]
     # Если есть хоть одна распознанная группа или преподаватель
     if matched_group or matched_teacher:
-        c.close()
-        conn.close()
         ctx = resolve_platform(email=email, vk_id_chat=vk_id_chat, vk_id_user=vk_id_user, telegram=telegram, discord=discord)
         if ctx is None:
             logger.error('Incorrect request to search groups and teachers')
@@ -712,9 +736,12 @@ def search_group_and_teacher_in_request(request: str, email: str = None, vk_id_c
             request_mod = '%' + request[:-4] + '%'
         else:
             request_mod = '%' + request + '%'
-        c.execute('SELECT * FROM timetable WHERE "Group" LIKE ?', (request_mod,))
+        conn = connection_to_sql(timetable_db)
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        c.execute('SELECT DISTINCT "Group" FROM timetable WHERE "Group" LIKE ?', (request_mod,))
         records_group = c.fetchall()
-        c.execute('SELECT * FROM timetable WHERE "Name" LIKE ?', (request_mod,))
+        c.execute('SELECT DISTINCT "Name" FROM timetable WHERE "Name" LIKE ?', (request_mod,))
         records_teacher = c.fetchall()
         c.close()
         conn.close()

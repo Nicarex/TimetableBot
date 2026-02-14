@@ -1,3 +1,5 @@
+import asyncio
+import functools
 import nextcord
 from nextcord import Interaction, SlashOption
 from nextcord.ext import commands
@@ -8,6 +10,12 @@ import sqlite3
 from calendar_timetable import show_calendar_url_to_user
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO, DISCORD_ADMIN_USERNAME
 from messaging import split_response
+
+
+async def run_sync(func, *args, **kwargs):
+    """Запускает синхронную функцию в thread pool, не блокируя event loop."""
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, functools.partial(func, *args, **kwargs))
 
 
 intents = nextcord.Intents.default()
@@ -25,7 +33,7 @@ async def start(interaction: Interaction):
 @bot.slash_command(description="Расписание на текущую неделю")
 async def current_week(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    parts = split_response(getting_timetable_for_user(discord=str(interaction.channel_id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, discord=str(interaction.channel_id)))
     for i, part in enumerate(parts):
         if i == 0:
             await interaction.response.send_message(part)
@@ -37,7 +45,7 @@ async def current_week(interaction: Interaction):
 @bot.slash_command(description="Расписание на следующую неделю")
 async def next_week(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    parts = split_response(getting_timetable_for_user(next='YES', discord=str(interaction.channel_id)))
+    parts = split_response(await run_sync(getting_timetable_for_user, next='YES', discord=str(interaction.channel_id)))
     for i, part in enumerate(parts):
         if i == 0:
             await interaction.response.send_message(part)
@@ -49,7 +57,7 @@ async def next_week(interaction: Interaction):
 @bot.slash_command(description="Просмотр текущих настроек")
 async def settings(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    answer = display_saved_settings(discord=str(interaction.channel_id))
+    answer = await run_sync(display_saved_settings, discord=str(interaction.channel_id))
     await interaction.response.send_message(answer)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
@@ -57,7 +65,7 @@ async def settings(interaction: Interaction):
 @bot.slash_command(description="Получение ссылок на календарь")
 async def calendar(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    answer = show_calendar_url_to_user(discord=str(interaction.channel_id))
+    answer = await run_sync(show_calendar_url_to_user, discord=str(interaction.channel_id))
     await interaction.response.send_message(answer)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
@@ -72,10 +80,10 @@ async def lesson_time(
         await interaction.response.send_message("Не передано значение", ephemeral=True)
     else:
         if values.find('yes') != -1:
-            answer = enable_and_disable_lesson_time(enable='YES', discord=str(interaction.channel_id))
+            answer = await run_sync(enable_and_disable_lesson_time, enable='YES', discord=str(interaction.channel_id))
             await interaction.response.send_message(answer)
         elif values.find('no') != -1:
-            answer = enable_and_disable_lesson_time(disable='YES', discord=str(interaction.channel_id))
+            answer = await run_sync(enable_and_disable_lesson_time, disable='YES', discord=str(interaction.channel_id))
             await interaction.response.send_message(answer)
         else:
             await interaction.response.send_message('Неизвестный параметр')
@@ -85,7 +93,7 @@ async def lesson_time(
 @bot.slash_command(name='delete_settings', description='Удаление сохраненных групп и преподавателей')
 async def delete_settings(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    answer = delete_all_saved_groups_and_teachers(discord=str(interaction.channel_id))
+    answer = await run_sync(delete_all_saved_groups_and_teachers, discord=str(interaction.channel_id))
     await interaction.response.send_message(answer)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
@@ -100,10 +108,10 @@ async def notifications(
         await interaction.response.send_message("Не передано значение", ephemeral=True)
     else:
         if values.find('yes') != -1:
-            answer = enable_and_disable_notifications(enable='YES', discord=str(interaction.channel_id))
+            answer = await run_sync(enable_and_disable_notifications, enable='YES', discord=str(interaction.channel_id))
             await interaction.response.send_message(answer)
         elif values.find('no') != -1:
-            answer = enable_and_disable_notifications(disable='YES', discord=str(interaction.channel_id))
+            answer = await run_sync(enable_and_disable_notifications, disable='YES', discord=str(interaction.channel_id))
             await interaction.response.send_message(answer)
         else:
             await interaction.response.send_message('Неизвестный параметр')
@@ -113,7 +121,7 @@ async def notifications(
 @bot.slash_command(description="Учебная нагрузка на текущий месяц")
 async def workload(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    parts = split_response(getting_workload_for_user(discord=str(interaction.channel_id)))
+    parts = split_response(await run_sync(getting_workload_for_user, discord=str(interaction.channel_id)))
     for i, part in enumerate(parts):
         if i == 0:
             await interaction.response.send_message(part)
@@ -125,7 +133,7 @@ async def workload(interaction: Interaction):
 @bot.slash_command(description="Учебная нагрузка на следующий месяц")
 async def workload_next(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    parts = split_response(getting_workload_for_user(next='YES', discord=str(interaction.channel_id)))
+    parts = split_response(await run_sync(getting_workload_for_user, next='YES', discord=str(interaction.channel_id)))
     for i, part in enumerate(parts):
         if i == 0:
             await interaction.response.send_message(part)
@@ -157,7 +165,7 @@ async def add(
     if not values:
         await interaction.response.send_message("Не передано значение", ephemeral=True)
     else:
-        search_response = search_group_and_teacher_in_request(request=str(values), discord=str(interaction.channel_id))
+        search_response = await run_sync(search_group_and_teacher_in_request, request=str(values), discord=str(interaction.channel_id))
         if search_response is False:
             await interaction.response.send_message('Нет распознанных групп или преподавателей')
         else:
