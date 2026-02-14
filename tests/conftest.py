@@ -50,6 +50,30 @@ sys.modules['vkbottle'].API = lambda *a, **k: None
 # chardet.detect нужен в other.py
 sys.modules['chardet'].detect = lambda *a, **k: {'encoding': 'utf-8', 'confidence': 1.0}
 
+# xlsxwriter.Workbook нужен в excel.py
+class _MockWorksheet:
+    def set_column(self, *a, **kw): pass
+    def merge_range(self, *a, **kw): pass
+    def write(self, *a, **kw): pass
+
+class _MockWorkbook:
+    def __init__(self, filepath):
+        self.filepath = filepath
+    def add_worksheet(self, name='Sheet1'):
+        return _MockWorksheet()
+    def add_format(self, *a, **kw):
+        return object()
+    def close(self):
+        import os
+        dirpath = os.path.dirname(self.filepath)
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
+        # Create minimal placeholder file
+        with open(self.filepath, 'wb') as f:
+            f.write(b'PK\x03\x04')  # ZIP header
+
+sys.modules['xlsxwriter'].Workbook = _MockWorkbook
+
 # pendulum — заглушки для основных методов
 from datetime import datetime, timedelta
 
