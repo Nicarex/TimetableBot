@@ -30,7 +30,8 @@ job "timebot" {
                     target = "/app/config.ini"
                 }
 
-                image = "xnicare/timetablebot:1.0.5"
+                image = "ghcr.io/nicarex/timetablebot:latest"
+                force_pull = true
                 network_mode = "host"
                 volumes = [
                     "/opt/nomad/timebot/calendars:/app/calendars",

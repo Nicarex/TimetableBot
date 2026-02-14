@@ -10,17 +10,18 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        python-version: ['3.14']
-
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        run: git clone --depth 1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
+      - name: Set up Python
+        run: |
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -y python3.14 python3.14-venv
+          python3.14 -m venv .venv
+          . .venv/bin/activate
+          echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
 
       - name: Install test dependencies
         run: pip install pytest

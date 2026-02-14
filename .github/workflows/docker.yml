@@ -11,13 +11,19 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        run: git clone --depth 1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
 
       - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.14'
+        run: |
+          sudo add-apt-repository -y ppa:deadsnakes/ppa
+          sudo apt-get update
+          sudo apt-get install -y python3.14 python3.14-venv
+          python3.14 -m venv .venv
+          . .venv/bin/activate
+          echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
 
       - name: Install test dependencies
         run: pip install pytest
@@ -33,28 +39,19 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        run: git clone --depth 1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels)
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=sha
-            type=raw,value=latest
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+        run: |
+          IMAGE_ID="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          # lowercase the image name (GHCR requirement)
+          IMAGE_ID=$(echo "$IMAGE_ID" | tr '[:upper:]' '[:lower:]')
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          docker build -t "$IMAGE_ID:latest" -t "$IMAGE_ID:sha-$SHORT_SHA" .
+          docker push "$IMAGE_ID:latest"
+          docker push "$IMAGE_ID:sha-$SHORT_SHA"
