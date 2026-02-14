@@ -112,6 +112,15 @@ class _MockDateTime:
             return months[self.dt.month - 1]
         return str(self.dt)
     
+    @property
+    def month(self):
+        return self.dt.month
+
+    @property
+    def day_of_week(self):
+        # pendulum: Monday=1, Sunday=7
+        return self.dt.isoweekday()
+
     def isoweekday(self):
         return self.dt.isoweekday()
     
