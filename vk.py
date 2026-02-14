@@ -8,6 +8,8 @@ from vkbottle.bot import Bot, Message
 from other import read_config
 from calendar_timetable import show_calendar_url_to_user
 from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user
+from constants import URL_INSTRUCTIONS, AUTHOR_INFO, VK_CLUB_ID
+from messaging import split_response
 
 
 group_token = read_config(vk='YES')
@@ -26,7 +28,7 @@ KEYBOARD_USER_MAIN = (
 
 KEYBOARD_USER_SETTINGS = (
     Keyboard(one_time=False, inline=False)
-    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
+    .add(OpenLink(label='Инструкция', link=URL_INSTRUCTIONS))
     .add(Text('Об авторе'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
@@ -43,7 +45,7 @@ KEYBOARD_USER_CALENDAR = (
     Keyboard(one_time=False, inline=False)
     .add(Text('Да, я прочитал(а) инструкцию'), color=KeyboardButtonColor.PRIMARY)
     .row()
-    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
+    .add(OpenLink(label='Инструкция', link=URL_INSTRUCTIONS))
     .row()
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
@@ -82,7 +84,7 @@ KEYBOARD_CHAT_MAIN = (
 
 KEYBOARD_CHAT_SETTINGS = (
     Keyboard(one_time=False, inline=True)
-    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
+    .add(OpenLink(label='Инструкция', link=URL_INSTRUCTIONS))
     .add(Text('Календарь'), color=KeyboardButtonColor.SECONDARY)
     .row()
     .add(Text('Настроить уведомления об изменениях'), color=KeyboardButtonColor.PRIMARY)
@@ -100,7 +102,7 @@ KEYBOARD_CHAT_CALENDAR = (
     Keyboard(one_time=False, inline=True)
     .add(Text('Да, я знаю, что делаю'), color=KeyboardButtonColor.PRIMARY)
     .row()
-    .add(OpenLink(label='Инструкция', link='https://nicarex.github.io/timetablebot-site/'))
+    .add(OpenLink(label='Инструкция', link=URL_INSTRUCTIONS))
     .row()
     .add(Text('Вернуться назад'), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
@@ -131,52 +133,48 @@ KEYBOARD_CHAT_LESSON_TIME = (
 @bot.on.private_message(text="Текущая неделя")
 async def user_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = str(getting_timetable_for_user(vk_id_user=str(message.from_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, keyboard=KEYBOARD_USER_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(vk_id_user=str(message.from_id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
+        else:
+            await message.answer(part)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
 @bot.on.private_message(text="Следующая неделя")
 async def user_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = str(getting_timetable_for_user(next='YES', vk_id_user=str(message.from_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, keyboard=KEYBOARD_USER_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(next='YES', vk_id_user=str(message.from_id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
+        else:
+            await message.answer(part)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
 @bot.on.private_message(text="Учебная нагрузка на текущий месяц")
 async def user_work_load_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = str(getting_workload_for_user(vk_id_user=str(message.from_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, keyboard=KEYBOARD_USER_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_workload_for_user(vk_id_user=str(message.from_id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
+        else:
+            await message.answer(part)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
 @bot.on.private_message(text="Учебная нагрузка на следующий месяц")
 async def user_work_load_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    answer = str(getting_workload_for_user(next='YES', vk_id_user=str(message.from_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, keyboard=KEYBOARD_USER_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_workload_for_user(next='YES', vk_id_user=str(message.from_id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, keyboard=KEYBOARD_USER_MAIN)
+        else:
+            await message.answer(part)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -185,7 +183,7 @@ async def user_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
     # noinspection PyTypeChecker
     users_info = await bot.api.users.get(message.from_id)
-    await message.answer("Привет, {}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/\n\nАхтунг! Бот находится в стадии бета-тестирования".format(users_info[0].first_name), keyboard=KEYBOARD_USER_MAIN)
+    await message.answer(f"Привет, {users_info[0].first_name}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\n{URL_INSTRUCTIONS}\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_USER_MAIN)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -277,14 +275,14 @@ async def user_back(message: Message):
 @bot.on.private_message(text="Об авторе")
 async def user_about_author(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    await message.answer('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_USER_SETTINGS)
+    await message.answer(AUTHOR_INFO, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
 @bot.on.private_message(text="Инструкция")
 async def user_instruction_link(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    await message.answer('https://nicarex.github.io/timetablebot-site/', keyboard=KEYBOARD_USER_SETTINGS)
+    await message.answer(URL_INSTRUCTIONS, keyboard=KEYBOARD_USER_SETTINGS)
     logger.log('VK', 'Response to message from vk user: "' + str(message.from_id) + '"')
 
 
@@ -301,40 +299,38 @@ async def user_search_in_request(message: Message, groups_and_teachers: str):
 
 
 # Обработка сообщений из бесед
-@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая', "[club199038911|@bot_agz] Текущая неделя", "[club199038911|@bot_agz] текущая неделя"])
+@bot.on.chat_message(text=["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая', f"[club{VK_CLUB_ID}|@bot_agz] Текущая неделя", f"[club{VK_CLUB_ID}|@bot_agz] текущая неделя"])
 async def chat_timetable_now(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = str(getting_timetable_for_user(vk_id_chat=str(message.chat_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, keyboard=KEYBOARD_CHAT_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(vk_id_chat=str(message.chat_id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, keyboard=KEYBOARD_CHAT_MAIN)
+        else:
+            await message.answer(part)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая', "[club199038911|@bot_agz] Следующая неделя", "[club199038911|@bot_agz] следующая неделя"])
+@bot.on.chat_message(text=["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая', f"[club{VK_CLUB_ID}|@bot_agz] Следующая неделя", f"[club{VK_CLUB_ID}|@bot_agz] следующая неделя"])
 async def chat_timetable_next(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    answer = str(getting_timetable_for_user(next='YES', vk_id_chat=str(message.chat_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, keyboard=KEYBOARD_CHAT_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(next='YES', vk_id_chat=str(message.chat_id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, keyboard=KEYBOARD_CHAT_MAIN)
+        else:
+            await message.answer(part)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Начать", 'начать', '/начать', '/Начать', '[club199038911|@bot_agz] Начать', '[club199038911|@bot_agz] начать'])
+@bot.on.chat_message(text=["Начать", 'начать', '/начать', '/Начать', f'[club{VK_CLUB_ID}|@bot_agz] Начать', f'[club{VK_CLUB_ID}|@bot_agz] начать'])
 async def chat_start_message(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer("Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_CHAT_MAIN)
+    await message.answer(f"Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\n{URL_INSTRUCTIONS}\n\nАхтунг! Бот находится в стадии бета-тестирования", keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=['Настройки', 'настройки', '/настройки', '/Настройки', '[club199038911|@bot_agz] настройки', '[club199038911|@bot_agz] Настройки'])
+@bot.on.chat_message(text=['Настройки', 'настройки', '/настройки', '/Настройки', f'[club{VK_CLUB_ID}|@bot_agz] настройки', f'[club{VK_CLUB_ID}|@bot_agz] Настройки'])
 async def chat_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = display_saved_settings(vk_id_chat=str(message.chat_id))
@@ -342,14 +338,14 @@ async def chat_settings(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Календарь", 'календарь', '/календарь', '/Календарь', '[club199038911|@bot_agz] календарь', '[club199038911|@bot_agz] Календарь'])
+@bot.on.chat_message(text=["Календарь", 'календарь', '/календарь', '/Календарь', f'[club{VK_CLUB_ID}|@bot_agz] календарь', f'[club{VK_CLUB_ID}|@bot_agz] Календарь'])
 async def chat_calendar_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer(message='❗️ВНИМАНИЕ❗️\nДля успешного использования календаря НУЖНО прочитать инструкцию, иначе вы просто не поймете, что делать с полученными ссылками.', keyboard=KEYBOARD_CHAT_CALENDAR)
     logger.log('VK', 'Response to message from vk user: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Да, я знаю, что делаю", '[club199038911|@bot_agz] Да, я знаю, что делаю'])
+@bot.on.chat_message(text=["Да, я знаю, что делаю", f'[club{VK_CLUB_ID}|@bot_agz] Да, я знаю, что делаю'])
 async def chat_calendar_response(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Запрос выполняется, пожалуйста, подождите...')
@@ -358,14 +354,14 @@ async def chat_calendar_response(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Настроить уведомления об изменениях", '[club199038911|@bot_agz] Настроить уведомления об изменениях'])
+@bot.on.chat_message(text=["Настроить уведомления об изменениях", f'[club{VK_CLUB_ID}|@bot_agz] Настроить уведомления об изменениях'])
 async def chat_noti_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Выберите параметры:', keyboard=KEYBOARD_CHAT_NOTI)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Включить уведомления", '[club199038911|@bot_agz] Включить уведомления'])
+@bot.on.chat_message(text=["Включить уведомления", f'[club{VK_CLUB_ID}|@bot_agz] Включить уведомления'])
 async def chat_noti_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_notifications(enable='YES', vk_id_chat=str(message.chat_id))
@@ -373,7 +369,7 @@ async def chat_noti_enable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Выключить уведомления", '[club199038911|@bot_agz] Выключить уведомления'])
+@bot.on.chat_message(text=["Выключить уведомления", f'[club{VK_CLUB_ID}|@bot_agz] Выключить уведомления'])
 async def chat_noti_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_notifications(disable='YES', vk_id_chat=str(message.chat_id))
@@ -381,14 +377,14 @@ async def chat_noti_disable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Настроить отображение времени занятий", '[club199038911|@bot_agz] Настроить отображение времени занятий'])
+@bot.on.chat_message(text=["Настроить отображение времени занятий", f'[club{VK_CLUB_ID}|@bot_agz] Настроить отображение времени занятий'])
 async def user_lesson_time_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Выберите параметры:', keyboard=KEYBOARD_CHAT_LESSON_TIME)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Включить отображение времени занятий", '[club199038911|@bot_agz] Включить отображение времени занятий'])
+@bot.on.chat_message(text=["Включить отображение времени занятий", f'[club{VK_CLUB_ID}|@bot_agz] Включить отображение времени занятий'])
 async def user_lesson_time_enable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_lesson_time(enable='YES', vk_id_chat=str(message.chat_id))
@@ -396,7 +392,7 @@ async def user_lesson_time_enable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Выключить отображение времени занятий", '[club199038911|@bot_agz] Выключить отображение времени занятий'])
+@bot.on.chat_message(text=["Выключить отображение времени занятий", f'[club{VK_CLUB_ID}|@bot_agz] Выключить отображение времени занятий'])
 async def user_lesson_time_disable(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = enable_and_disable_lesson_time(disable='YES', vk_id_chat=str(message.chat_id))
@@ -404,7 +400,7 @@ async def user_lesson_time_disable(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Удалить параметры групп и преподавателей", '[club199038911|@bot_agz] Удалить параметры групп и преподавателей'])
+@bot.on.chat_message(text=["Удалить параметры групп и преподавателей", f'[club{VK_CLUB_ID}|@bot_agz] Удалить параметры групп и преподавателей'])
 async def chat_delete_saved_settings(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     answer = delete_all_saved_groups_and_teachers(vk_id_chat=str(message.chat_id))
@@ -412,17 +408,17 @@ async def chat_delete_saved_settings(message: Message):
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Вернуться назад", '[club199038911|@bot_agz] Вернуться назад'])
+@bot.on.chat_message(text=["Вернуться назад", f'[club{VK_CLUB_ID}|@bot_agz] Вернуться назад'])
 async def chat_back(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
     await message.answer('Хорошо', keyboard=KEYBOARD_CHAT_MAIN)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Об авторе", '[club199038911|@bot_agz] Об авторе'])
+@bot.on.chat_message(text=["Об авторе", f'[club{VK_CLUB_ID}|@bot_agz] Об авторе'])
 async def chat_about_author(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', keyboard=KEYBOARD_CHAT_SETTINGS)
+    await message.answer(AUTHOR_INFO, keyboard=KEYBOARD_CHAT_SETTINGS)
     logger.log('VK', 'Response to message from vk chat: "' + str(message.chat_id) + '"')
 
 
@@ -475,7 +471,7 @@ def start_vk_server():
         wait_seconds_to_retry = random.randint(1, 10)
         logger.log('VK', f'VK server timeout, wait <{str(wait_seconds_to_retry)}> seconds to retry')
         time.sleep(wait_seconds_to_retry)
-    except:
-        logger.log('VK', 'Strange error... Continue')
+    except Exception as exc:
+        logger.log('VK', f'Unexpected error: {exc}. Continue')
         wait_seconds_to_retry = random.randint(1, 10)
         time.sleep(wait_seconds_to_retry)

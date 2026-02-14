@@ -1,13 +1,14 @@
-from multiprocessing import Manager, Process
+import os
+import time
+from multiprocessing import Process
+
 from logger import logger
 from mail import processingMail
 from vk import start_vk_server
 from discord import start_discord_server
 from telegram import start_telegram_server
 from other import create_required_dirs
-
-
-import time
+from sql_db import init_databases
 
 def start_service(target, name):
     try:
@@ -18,8 +19,6 @@ def start_service(target, name):
     except Exception as e:
         logger.critical(f'Failed to start {name}: {e}')
         return None
-
-import os
 
 def config_exists():
     return os.path.isfile('config.ini')
@@ -32,9 +31,10 @@ if __name__ == '__main__':
     # Создание директорий
     try:
         create_required_dirs()
-        logger.info('Required directories created successfully')
+        init_databases()
+        logger.info('Required directories and databases initialized successfully')
     except Exception as e:
-        logger.critical(f'Failed to create required directories: {e}')
+        logger.critical(f'Failed to initialize: {e}')
         exit(1)
 
     services = [
@@ -43,7 +43,6 @@ if __name__ == '__main__':
         (start_telegram_server, 'Telegram service'),
         (start_discord_server, 'Discord service')
     ]
-    manager = Manager()
     processes = []
     for target, name in services:
         p = start_service(target, name)

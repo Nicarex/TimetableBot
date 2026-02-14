@@ -6,6 +6,11 @@ from urllib import request
 import time
 from icalendar import Calendar, Event
 import pendulum
+from constants import (
+    TIMEZONE, GLOB_TIMETABLE_DB, GITHUB_REPO_NAME,
+    GITHUB_CALENDARS_BASE_URL, LESSON_TIMES, CALENDAR_REFRESH_INTERVAL,
+)
+from platform_context import resolve_platform
 
 
 github_token = read_config(github='YES')
@@ -20,12 +25,12 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
         cal.add('calscale', 'GREGORIAN')
         cal.add('method', 'PUBLISH')
         cal.add('x-wr-calname', f'{teacher}')
-        cal.add('x-wr-timezone', 'Europe/Moscow')
+        cal.add('x-wr-timezone', TIMEZONE)
         cal.add('x-wr-caldesc', f'Расписание занятий для преподавателя {teacher}')
-        cal.add('refresh-interval;value=duration', 'PT6H')
-        cal.add('x-published-ttl', 'PT6H')
+        cal.add('refresh-interval;value=duration', CALENDAR_REFRESH_INTERVAL)
+        cal.add('x-published-ttl', CALENDAR_REFRESH_INTERVAL)
         # Получение расписания занятий из бд расписания
-        db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+        db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
         if db_timetable is None:
             logger.error('Cant import timetable to calendar because no db-files in timetable-dbs directory')
             return False
@@ -48,34 +53,14 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
             # Создание нового события
             event = Event()
             # Дата со временем
-            timezone = 'Europe/Moscow'
-            if str(elem['Les']) == '1':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 09:00", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 10:30", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '2':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 10:45", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 12:15", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '3':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 12:30", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:00", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '4':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:40", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:10", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '5':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:25", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 17:55", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '6':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 18:05", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 19:35", fmt='D-MM-YYYY HH:mm', tz=timezone).format('YYYYMMDDTHHmmss')
-            else:
+            les_num = int(elem['Les'])
+            if les_num not in LESSON_TIMES:
                 logger.error(f'Incorrect lesson value = <{str(elem["Les"])}>')
                 return False
+            start_t, end_t = LESSON_TIMES[les_num]
+            now = pendulum.now(tz=TIMEZONE).format('YYYYMMDDTHHmmss')
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} {start_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} {end_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
             # Добавление дат в событие
             event['dtstart'] = start_time
             event['dtend'] = end_time
@@ -92,7 +77,7 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
             # Строка в зависимости от темы
             if elem['Themas'] is not None:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
-            elif elem['Themas'] is None:
+            else:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
             groups_for_description = ''
             # Обработка нескольких групп на одном занятии
@@ -124,12 +109,12 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
         cal.add('calscale', 'GREGORIAN')
         cal.add('method', 'PUBLISH')
         cal.add('x-wr-calname', f'{group_id}')
-        cal.add('x-wr-timezone', 'Europe/Moscow')
+        cal.add('x-wr-timezone', TIMEZONE)
         cal.add('x-wr-caldesc', f'Расписание занятий для группы {group_id}')
-        cal.add('refresh-interval;value=duration', 'PT6H')
-        cal.add('x-published-ttl', 'PT6H')
+        cal.add('refresh-interval;value=duration', CALENDAR_REFRESH_INTERVAL)
+        cal.add('x-published-ttl', CALENDAR_REFRESH_INTERVAL)
         # Получение расписания занятий из бд расписания
-        db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+        db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
         if db_timetable is None:
             logger.error('Cant import timetable to calendar because no db-files in timetable-dbs directory')
             return False
@@ -150,46 +135,14 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
             # Создание нового события
             event = Event()
             # Дата со временем
-            timezone = 'Europe/Moscow'
-            if str(elem['Les']) == '1':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 09:00", fmt='D-MM-YYYY HH:mm',
-                                                  tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 10:30", fmt='D-MM-YYYY HH:mm',
-                                                tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '2':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 10:45", fmt='D-MM-YYYY HH:mm',
-                                                  tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 12:15", fmt='D-MM-YYYY HH:mm',
-                                                tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '3':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 12:30", fmt='D-MM-YYYY HH:mm',
-                                                  tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:00", fmt='D-MM-YYYY HH:mm',
-                                                tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '4':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 14:40", fmt='D-MM-YYYY HH:mm',
-                                                  tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:10", fmt='D-MM-YYYY HH:mm',
-                                                tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '5':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 16:25", fmt='D-MM-YYYY HH:mm',
-                                                  tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 17:55", fmt='D-MM-YYYY HH:mm',
-                                                tz=timezone).format('YYYYMMDDTHHmmss')
-            elif str(elem['Les']) == '6':
-                now = pendulum.now(tz=timezone).format('YYYYMMDDTHHmmss')
-                start_time = pendulum.from_format(string=f"{str(elem['Date'])} 18:05", fmt='D-MM-YYYY HH:mm',
-                                                  tz=timezone).format('YYYYMMDDTHHmmss')
-                end_time = pendulum.from_format(string=f"{str(elem['Date'])} 19:35", fmt='D-MM-YYYY HH:mm',
-                                                tz=timezone).format('YYYYMMDDTHHmmss')
-            else:
+            les_num = int(elem['Les'])
+            if les_num not in LESSON_TIMES:
                 logger.error(f'Incorrect lesson value = <{str(elem["Les"])}>')
                 return False
+            start_t, end_t = LESSON_TIMES[les_num]
+            now = pendulum.now(tz=TIMEZONE).format('YYYYMMDDTHHmmss')
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} {start_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} {end_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
             # Добавление дат в событие
             event['dtstart'] = start_time
             event['dtend'] = end_time
@@ -206,7 +159,7 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
             # Строка в зависимости от темы
             if elem['Themas'] is not None:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])}'
-            elif elem['Themas'] is None:
+            else:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Subject"])}{str(elem["Aud"])}'
             auds_for_description = ''
             teachers_for_description = ''
@@ -242,7 +195,7 @@ def download_calendar_file_to_github(filename: str):
     logger.log('CALENDAR', f'Start upload calendar <{filename}> to GitHub')
     g = Github(github_token)
     try:
-        repo = g.get_repo("Nicarex/timetablebot-files")
+        repo = g.get_repo(GITHUB_REPO_NAME)
         all_files = []
         contents = repo.get_contents("")
         while contents:
@@ -268,9 +221,10 @@ def download_calendar_file_to_github(filename: str):
             repo.create_file(filepath, "create", content, branch="main")
             logger.log('CALENDAR', f'Calendar <{filename}> has been created in GitHub')
             return True
-    except:
-        logger.log('CALENDAR', f'Error happened while upload calendar <{filename}> to GitHub. Wait 20 seconds')
+    except Exception as exc:
+        logger.log('CALENDAR', f'Error happened while upload calendar <{filename}> to GitHub: {exc}. Wait 20 seconds')
         time.sleep(20)
+        return False
 
 
 # Отправляет в ответ ссылку на календарь
@@ -285,55 +239,17 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
 
     Если у пользователя несколько сохраненных значений, то возвращаем ссылки сразу на все календари.
     """
-    # Обработка email
-    if email is not None and (vk_id_chat is None and vk_id_user is None and telegram is None and discord is None):
-        logger.log('CALENDAR', f'Request to show calendar urls for email = <{str(email)}>')
-        # Подключение к пользовательской бд
-        conn = connection_to_sql(name='user_settings.db')
-        conn.row_factory = Row
-        c = conn.cursor()
-        user_row = c.execute('SELECT * FROM email WHERE email = ?', (email,)).fetchone()
-        c.close()
-        conn.close()
-    elif vk_id_chat is not None and (email is None and vk_id_user is None and telegram is None and discord is None):
-        logger.log('CALENDAR', f'Request to show calendar urls for vk chat = <{str(vk_id_chat)}>')
-        # Подключение к пользовательской бд
-        conn = connection_to_sql(name='user_settings.db')
-        conn.row_factory = Row
-        c = conn.cursor()
-        user_row = c.execute('SELECT * FROM vk_chat WHERE vk_id = ?', (vk_id_chat,)).fetchone()
-        c.close()
-        conn.close()
-    elif vk_id_user is not None and (email is None and vk_id_chat is None and telegram is None and discord is None):
-        logger.log('CALENDAR', f'Request to show calendar urls for vk user = <{str(vk_id_user)}>')
-        # Подключение к пользовательской бд
-        conn = connection_to_sql(name='user_settings.db')
-        conn.row_factory = Row
-        c = conn.cursor()
-        user_row = c.execute('SELECT * FROM vk_user WHERE vk_id = ?', (vk_id_user,)).fetchone()
-        c.close()
-        conn.close()
-    elif telegram is not None and (email is None and vk_id_chat is None and vk_id_user is None and discord is None):
-        logger.log('CALENDAR', f'Request to show calendar urls for telegram = <{str(telegram)}>')
-        # Подключение к пользовательской бд
-        conn = connection_to_sql(name='user_settings.db')
-        conn.row_factory = Row
-        c = conn.cursor()
-        user_row = c.execute('SELECT * FROM telegram WHERE telegram_id = ?', (telegram,)).fetchone()
-        c.close()
-        conn.close()
-    elif discord is not None and (email is None and vk_id_chat is None and vk_id_user is None and telegram is None):
-        logger.log('CALENDAR', f'Request to show calendar urls for discord = <{str(discord)}>')
-        # Подключение к пользовательской бд
-        conn = connection_to_sql(name='user_settings.db')
-        conn.row_factory = Row
-        c = conn.cursor()
-        user_row = c.execute('SELECT * FROM discord WHERE discord_id = ?', (discord,)).fetchone()
-        c.close()
-        conn.close()
-    else:
+    ctx = resolve_platform(email=email, vk_id_chat=vk_id_chat, vk_id_user=vk_id_user, telegram=telegram, discord=discord)
+    if ctx is None:
         logger.error('Incorrect request to show calendar url to user. Email, vk chat, vk user, telegram and discord are undefined')
         return 'Что-то пошло не так при обработке запроса, повторите позже'
+    logger.log('CALENDAR', f'Request to show calendar urls for {ctx.name} = <{ctx.user_id}>')
+    conn = connection_to_sql(name='user_settings.db')
+    conn.row_factory = Row
+    c = conn.cursor()
+    user_row = c.execute(f'SELECT * FROM {ctx.table} WHERE {ctx.id_column} = ?', (ctx.user_id,)).fetchone()
+    c.close()
+    conn.close()
 
     # Если есть сохраненные параметры для пользователя
     if user_row:
@@ -377,7 +293,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                             teacher=teacher) is True and download_calendar_file_to_github(
                             filename=teacher) is True:
                         teacher_in_unicode = request.pathname2url(teacher)
-                        url = f'https://raw.githubusercontent.com/Nicarex/timetablebot-files/main/calendars/{teacher_in_unicode}.ics'
+                        url = f'{GITHUB_CALENDARS_BASE_URL}{teacher_in_unicode}.ics'
                         c.execute('INSERT INTO calendars (teacher, calendar_url) VALUES (?, ?)', (teacher, url))
                         conn.commit()
                         if answer == '':
@@ -407,7 +323,7 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
                             group_id=group) is True and download_calendar_file_to_github(
                             filename=group) is True:
                         group_in_unicode = request.pathname2url(group)
-                        url = f'https://raw.githubusercontent.com/Nicarex/timetablebot-files/main/calendars/{group_in_unicode}.ics'
+                        url = f'{GITHUB_CALENDARS_BASE_URL}{group_in_unicode}.ics'
                         c.execute('INSERT INTO calendars (group_id, calendar_url) VALUES (?, ?)', (group, url))
                         conn.commit()
                         if answer == '':
@@ -430,8 +346,3 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
     else:
         logger.log('CALENDAR', f'No saved settings for user to show calendar url. Skip')
         return '\nНет сохраненных параметров. Добавьте сначала преподавателя или группу.'
-
-
-# with logger.catch():
-    # create_calendar_file_with_timetable(group_id='307')
-#     download_calendar_file_to_github(filename='')

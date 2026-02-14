@@ -9,6 +9,10 @@ import pandas
 import configparser
 import yagmail
 import time
+from constants import (
+    TIMEZONE, URL_INSTRUCTIONS, SQL_TIMEOUT, MAIL_RETRY_WAIT,
+    DIR_TIMETABLE_DBS, DIR_TIMETABLE_FILES, DIR_DOWNLOADS, DIR_LOG, DIR_CALENDARS, DIR_DBS,
+)
 
 
 def read_config(email: str = None, vk: str = None, vk_send: str = None, github: str = None, telegram: str = None, discord: str = None):
@@ -41,17 +45,8 @@ def read_config(email: str = None, vk: str = None, vk_send: str = None, github: 
 
 
 def create_required_dirs():
-    # Если пути не существует - создать
-    if not os.path.isdir('timetable-dbs'):
-        os.makedirs('timetable-dbs', exist_ok=True)
-    if not os.path.isdir('timetable-files'):
-        os.makedirs('timetable-files', exist_ok=True)
-    if not os.path.isdir('downloads'):
-        os.makedirs('downloads', exist_ok=True)
-    if not os.path.isdir('log'):
-        os.makedirs('log', exist_ok=True)
-    if not os.path.isdir('calendars'):
-        os.makedirs('downloads', exist_ok=True)
+    for d in (DIR_TIMETABLE_DBS, DIR_TIMETABLE_FILES, DIR_DOWNLOADS, DIR_LOG, DIR_CALENDARS, DIR_DBS):
+        os.makedirs(d, exist_ok=True)
 
 
 # Отправка почты через yagmail
@@ -61,13 +56,13 @@ def sendMail(to_email, subject, text):
         user_info = read_config(email='YES')
         yag = yagmail.SMTP(user=user_info[1], password=user_info[2])
         # Подпись, которая добавляется в конец каждого отправленного сообщения
-        signature = '\n\n\nСайт-инструкция: https://nicarex.github.io/timetablebot-site/'
+        signature = f'\n\n\nСайт-инструкция: {URL_INSTRUCTIONS}'
         # Непосредственно отправка письма
         yag.send(to=to_email, subject=subject, contents=text + signature)
         logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
-    except:
-        logger.log('MAIL', f'Cant send mail to {to_email}, wait 120 sec...')
-        time.sleep(120)
+    except Exception as exc:
+        logger.log('MAIL', f'Cant send mail to {to_email}: {exc}, wait {MAIL_RETRY_WAIT} sec...')
+        time.sleep(MAIL_RETRY_WAIT)
 
 # Получает последний измененный файл
 def get_latest_file(path: str):
@@ -128,11 +123,19 @@ def check_encoding_and_move_files(path: str, encoding: str):
     return True
 
 
+def get_row_value(row, column_name, default=''):
+    """Safely get a column value from a sqlite3.Row object."""
+    try:
+        return row[column_name]
+    except (IndexError, KeyError):
+        return default
+
+
 def connection_to_sql(name: str):
     try:
         if name == "user_settings.db" or name == "calendars_list.db":
             name=f'dbs/{name}'
-        conn = sqlite3.connect(database=name, timeout=20)
+        conn = sqlite3.connect(database=name, timeout=SQL_TIMEOUT)
         try:
             # Improve concurrency for multiple processes by enabling WAL mode
             conn.execute('PRAGMA journal_mode=WAL;')
@@ -152,7 +155,7 @@ def connection_to_sql(name: str):
 def convert_to_sql(csv_files_directory: str):
     logger.log('OTHER', 'Request to convert csv to sql')
     # Текущая дата для filename
-    date = pendulum.now(tz='Europe/Moscow').format('YYYY-MM-DD_HH-mm-ss')
+    date = pendulum.now(tz=TIMEZONE).format('YYYY-MM-DD_HH-mm-ss')
     # Если есть хоть один файл, который заканчивается на csv
     list_of_files = glob(csv_files_directory + '/*.csv')
     if list_of_files:

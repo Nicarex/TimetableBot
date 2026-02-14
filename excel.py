@@ -3,6 +3,7 @@ from other import connection_to_sql, get_latest_file
 from logger import logger
 import pendulum
 import xlsxwriter
+from constants import TIMEZONE, GLOB_TIMETABLE_DB
 
 
 def create_excel_with_workload(teacher: str = None, caf_id: str = None, all_teachers: str = None, next: str = None):
@@ -15,13 +16,13 @@ def create_excel_with_workload(teacher: str = None, caf_id: str = None, all_teac
     """
     if all_teachers is not None and (teacher is None and caf_id is None):
         # Выбирается бд
-        db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+        db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
         if db_timetable is None:
             logger.error('Cant create excel with workload because no db-files in timetable-dbs directory')
             return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
         # Текущее время
         pendulum.set_locale('ru')
-        dt = pendulum.now(tz='Europe/Moscow')
+        dt = pendulum.now(tz=TIMEZONE)
         # Подключение к бд
         conn = connection_to_sql(db_timetable)
         conn.row_factory = Row
@@ -47,13 +48,3 @@ def create_excel_with_workload(teacher: str = None, caf_id: str = None, all_teac
                 # if rows_with_month:
 
 
-workbook = xlsxwriter.Workbook('hello.xlsx')
-worksheet = workbook.add_worksheet()
-
-worksheet.write('A1', 'Hello world')
-
-workbook.close()
-
-
-# with logger.catch():
-    # create_excel_with_workload(all_teachers='YES')

@@ -3,6 +3,7 @@ from socket import gaierror
 from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail
 import os
 import time
+from constants import MAIL_RETRY_WAIT
 from logger import logger
 from imap_tools import MailBox, A
 from glob import glob
@@ -55,7 +56,6 @@ def processingMail():
                 answer = ''
                 if msg.text != '':
                     text = str(msg.text).replace('\n', '')
-                    print(text)
                 else:
                     text = str(msg.html).replace('\n', '')
                 if text.lower().find('текущие') != -1:
@@ -112,20 +112,20 @@ def processingMail():
         except gaierror:
             logger.log('MAIL', 'Network is unreachable!')
             # Ждем 2 минуты появления интернета
-            time.sleep(120)
+            time.sleep(MAIL_RETRY_WAIT)
             continue
         except imaplib.IMAP4.abort:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
-            time.sleep(120)
+            time.sleep(MAIL_RETRY_WAIT)
             continue
         except imaplib.IMAP4.error:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
-            time.sleep(120)
+            time.sleep(MAIL_RETRY_WAIT)
             continue
         except OSError:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
-            time.sleep(120)
+            time.sleep(MAIL_RETRY_WAIT)
             continue

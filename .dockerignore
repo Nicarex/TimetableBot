@@ -36,6 +36,15 @@ README.md
 **/timetable-files
 
 config.ini
-calendars_list.db
+*.db
+*.xlsx
 nomad.hcl
-user_settings.db
+test.py
+Dockerfile.old
+.venv1
+.venv2
+.idea
+**/tests
+**/.github
+**/.claude
+*.md

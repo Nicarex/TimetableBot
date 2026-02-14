@@ -1,38 +1,25 @@
 from logger import logger
 from datetime import timedelta
 import pendulum
-from other import get_latest_file, connection_to_sql
+from other import get_latest_file, connection_to_sql, get_row_value
 from glob import glob, iglob
 from sqlite3 import Row
 import os
-import re
-
-
-# Helper function to safely access Row columns
-def get_row_value(row, column_name, default=''):
-    """Safely get a column value from a sqlite3.Row object"""
-    try:
-        return row[column_name]
-    except (IndexError, KeyError):
-        return default
-
-
-# Дни недели для файла расписания
-list_with_days_of_week = ['ПОНЕДЕЛЬНИК - ', '\nВТОРНИК - ', '\nСРЕДА - ', '\nЧЕТВЕРГ - ', '\nПЯТНИЦА - ', '\nСУББОТА - ', '\nВОСКРЕСЕНЬЕ - ']
-list_with_lesson_time = ['', '09:00-10:30', '10:45-12:15', '12:30-14:00', '14:40-16:10', '16:25-17:55', '18:05-19:35']
-dict_with_names_of_month = {'января': 'январь', 'февраля': 'февраль', 'марта': 'март', 'апреля': 'апрель', 'мая': 'май', 'июня': 'июнь', 'июля': 'июль', 'августа': 'август', 'сентября': 'сентябрь', 'октября': 'октябрь', 'ноября': 'ноябрь', 'декабря': 'декабрь'}
-dict_with_names_of_lessons = {'л': 'лекция', 'пз': 'практическое занятие', 'зао': 'зачет с оценкой', 'экз.': 'экзамен', 'српп': 'самостоятельная работа под руководством преподавателя', 'гк': 'групповая консультация', 'см': 'семинар', 'контр.р': 'контрольная работа', 'лр': 'лабораторная работа', 'курс.р': 'курсовая работа'}
+from constants import (
+    TIMEZONE, GLOB_TIMETABLE_DB, DAYS_OF_WEEK, LESSON_TIMES_DISPLAY,
+    MONTH_NAMES,
+)
 
 
 # Учебная нагрузка
 def workload(teacher: str = None, next: str = None):
-    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
     if db_timetable is None:
         logger.error('Cant show timetable because no db-files in timetable-dbs directory')
         return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
     # Текущее время
     pendulum.set_locale('ru')
-    dt = pendulum.now(tz='Europe/Moscow')
+    dt = pendulum.now(tz=TIMEZONE)
     # Текущий
     if next is None:
         first_day_of_month = dt.start_of('month')
@@ -89,7 +76,7 @@ def workload(teacher: str = None, next: str = None):
                     all_lessons_of_month[subj_type] += 1
     c.close()
     conn.close()
-    answer = f"Преподаватель {str(teacher)}\nИтого за {str(dict_with_names_of_month.get(first_day_of_month.format('MMMM')))} - {str(int(counter_of_all_lessons_in_month*2))} ч. занятий"
+    answer = f"Преподаватель {str(teacher)}\nИтого за {str(MONTH_NAMES.get(first_day_of_month.format('MMMM')))} - {str(int(counter_of_all_lessons_in_month*2))} ч. занятий"
     if counter_of_all_lessons_in_month != 0:
         answer += f'\nТипы занятий:'
         for type_of_lesson in all_lessons_of_month:
@@ -99,7 +86,7 @@ def workload(teacher: str = None, next: str = None):
 
 # Вывод всех типов занятий из файла бд
 def show_all_types_of_lessons_in_db():
-    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
     if db_timetable is None:
         logger.error('Cant show timetable because no db-files in timetable-dbs directory')
         return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
@@ -124,13 +111,13 @@ def show_all_types_of_lessons_in_db():
 
 def workload_for_cafedra(cafedra_id):
     # Выбирается бд
-    db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+    db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
     if db_timetable is None:
         logger.error('Cant show timetable because no db-files in timetable-dbs directory')
         return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
     # Текущее время
     pendulum.set_locale('ru')
-    dt = pendulum.now(tz='Europe/Moscow')
+    dt = pendulum.now(tz=TIMEZONE)
     conn = connection_to_sql(db_timetable)
     conn.row_factory = Row
     c = conn.cursor()
@@ -162,7 +149,7 @@ def date_request(day_of_week: int, for_file: str = None, for_db: str = None, nex
     dt = pendulum.parse('2021-10-30')
     """
     # Текущее время в текущем часовом поясе
-    dt = pendulum.now(tz='Europe/Moscow')
+    dt = pendulum.now(tz=TIMEZONE)
     monday = dt.start_of('week')
     monday_next = dt.next(pendulum.MONDAY)
     # Если для файла
@@ -184,7 +171,7 @@ def date_request(day_of_week: int, for_file: str = None, for_db: str = None, nex
 
 # Название дня выводится в строку
 def name_of_day_string(day: int, next: str):
-    return list_with_days_of_week[day] + date_request(day, for_file='YES', next=next) + '\n'
+    return DAYS_OF_WEEK[day] + date_request(day, for_file='YES', next=next) + '\n'
 
 
 def timetable(group_id: str = None, teacher: str = None, month: str = None, next: str = None, lesson_time: str = None, use_previous_timetable_db: str = None):
@@ -205,10 +192,14 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     # Выбирается бд
     if use_previous_timetable_db is None:
         # Последняя бд
-        db_timetable = get_latest_file('timetable-dbs/timetable*.db')
+        db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
     else:
         # Предыдущая бд
-        db_timetable = sorted(iglob('timetable-dbs/*.db'), key=os.path.getmtime)[-2]
+        db_files = sorted(iglob('timetable-dbs/*.db'), key=os.path.getmtime)
+        if len(db_files) < 2:
+            logger.error('Not enough DB files to compare timetables')
+            return 'Недостаточно файлов расписания для сравнения'
+        db_timetable = db_files[-2]
     if db_timetable is None:
         logger.error('Cant show timetable because no db-files in timetable-dbs directory')
         return 'Извините, но в данный момент я не могу обработать ваш запрос, пожалуйста, попробуйте позже'
@@ -216,7 +207,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
     # Рассчитываем даты занятий
     # Текущее время
     pendulum.set_locale('ru')
-    dt = pendulum.now(tz='Europe/Moscow')
+    dt = pendulum.now(tz=TIMEZONE)
     dates_of_mondays_in_month = []
     # Нужна неделя
     if month is None:
@@ -330,7 +321,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     if not timetable_rows:
                         continue
                 # Название дня недели и дата
-                timetable_string += '\n' + list_with_days_of_week[day] + date_request(day_of_week=day, for_file='YES', next=next)
+                timetable_string += '\n' + DAYS_OF_WEEK[day] + date_request(day_of_week=day, for_file='YES', next=next)
                 # Формирование строки для каждого занятия
                 for lesson in range(1, 7):
                     timetable_rows = c.execute('SELECT * FROM timetable WHERE "Name" = ? AND "Date" = ? AND "Les" = ? ORDER BY "Group", "Subg"', (teacher, date_request(day_of_week=day, for_db='YES', next=next), lesson)).fetchall()
@@ -342,12 +333,12 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                         themas = get_row_value(row, 'Themas')
                         if themas is not None:
                             if lesson_time is None:
-                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
+                                timetable_string += f'\n{str(lesson)}. {LESSON_TIMES_DISPLAY[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                             else:
                                 timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
-                        elif themas is None:
+                        else:
                             if lesson_time is None:
-                                timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
+                                timetable_string += f'\n{str(lesson)}. {LESSON_TIMES_DISPLAY[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                             else:
                                 timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                         # Обработка нескольких групп на одном занятии
@@ -384,13 +375,13 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                                 themas = get_row_value(row, 'Themas')
                                 if themas is not None:
                                     if lesson_time is None:
-                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
+                                        timetable_string += f'\n{str(lesson)}. {LESSON_TIMES_DISPLAY[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                     else:
                                         timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                 # Темы нет
-                                elif themas is None:
+                                else:
                                     if lesson_time is None:
-                                        timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
+                                        timetable_string += f'\n{str(lesson)}. {LESSON_TIMES_DISPLAY[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                     else:
                                         timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Group"))} гр.'
                                 # Обработка нескольких групп на одном занятии
@@ -464,7 +455,7 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                 if not timetable_rows:
                     continue
             # Название дня недели и дата
-            timetable_string += '\n' + list_with_days_of_week[day] + date_request(day_of_week=day, for_file='YES', next=next)
+            timetable_string += '\n' + DAYS_OF_WEEK[day] + date_request(day_of_week=day, for_file='YES', next=next)
             # Формирование строки для каждого занятия
             for lesson in range(1, 7):
                 timetable_rows = c.execute(
@@ -478,12 +469,12 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
                     themas = get_row_value(row, 'Themas')
                     if themas is not None:
                         if lesson_time is None:
-                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
+                            timetable_string += f'\n{str(lesson)}. {LESSON_TIMES_DISPLAY[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                         else:
                             timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Themas"))} {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                     elif themas is None:
                         if lesson_time is None:
-                            timetable_string += f'\n{str(lesson)}. {list_with_lesson_time[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
+                            timetable_string += f'\n{str(lesson)}. {LESSON_TIMES_DISPLAY[lesson]} ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                         else:
                             timetable_string += f'\n{str(lesson)}. ({str(get_row_value(row, "Subj_type"))}) {str(get_row_value(row, "Subject"))}{str(get_row_value(row, "Aud"))} {str(get_row_value(row, "Name"))}'
                     # Обработка нескольких подгрупп на одном занятии
@@ -503,10 +494,3 @@ def timetable(group_id: str = None, teacher: str = None, month: str = None, next
         logger.error('Incorrect request to show timetable. Teacher and group_id are None')
         return False
 
-
-# with logger.catch():
-    # print(show_all_types_of_lessons_in_db())
-    # timetable(group_id='307', teacher=None, month=None, next=None, lesson_time=None)
-    # print(workload(teacher='Рубежная И.Н.', next=None))
-    # workload_for_cafedra(cafedra_id=73)
-    # print(show_all_types_of_lessons_in_db())

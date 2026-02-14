@@ -1,10 +1,12 @@
 from nextcord import Interaction, SlashOption
 from nextcord.ext import commands
 from other import read_config, connection_to_sql
-from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
+from sql_db import getting_timetable_for_user, getting_workload_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
 from logger import logger
 import sqlite3
 from calendar_timetable import show_calendar_url_to_user
+from constants import URL_INSTRUCTIONS, AUTHOR_INFO, DISCORD_ADMIN_USERNAME
+from messaging import split_response
 
 
 bot = commands.Bot(command_prefix="/")
@@ -13,33 +15,31 @@ bot = commands.Bot(command_prefix="/")
 @bot.slash_command(description="Начальное сообщение")
 async def start(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    await interaction.response.send_message(f"Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/")
+    await interaction.response.send_message(f"Привет!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\n{URL_INSTRUCTIONS}")
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
 
 @bot.slash_command(description="Расписание на текущую неделю")
 async def current_week(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    answer = str(getting_timetable_for_user(discord=str(interaction.channel_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[0] != i:
-                await interaction.send('➡ ' + i)
-            else:
-                await interaction.response.send_message('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(discord=str(interaction.channel_id)))
+    for i, part in enumerate(parts):
+        if i == 0:
+            await interaction.response.send_message(part)
+        else:
+            await interaction.send(part)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
 
 @bot.slash_command(description="Расписание на следующую неделю")
 async def next_week(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    answer = str(getting_timetable_for_user(next='YES', discord=str(interaction.channel_id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[0] != i:
-                await interaction.send('➡ ' + i)
-            else:
-                await interaction.response.send_message('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(next='YES', discord=str(interaction.channel_id)))
+    for i, part in enumerate(parts):
+        if i == 0:
+            await interaction.response.send_message(part)
+        else:
+            await interaction.send(part)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
 
@@ -87,17 +87,61 @@ async def delete_settings(interaction: Interaction):
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
 
+@bot.slash_command(description="Настройка уведомлений об изменениях в расписании")
+async def notifications(
+    interaction: Interaction,
+    values: str = SlashOption(description="yes - включить, no - отключить", required=False),
+):
+    logger.log('DISCORD', f'Request message: "{str(values)}" from: <{str(interaction.channel_id)}>')
+    if not values:
+        await interaction.response.send_message("Не передано значение", ephemeral=True)
+    else:
+        if values.find('yes') != -1:
+            answer = enable_and_disable_notifications(enable='YES', discord=str(interaction.channel_id))
+            await interaction.response.send_message(answer)
+        elif values.find('no') != -1:
+            answer = enable_and_disable_notifications(disable='YES', discord=str(interaction.channel_id))
+            await interaction.response.send_message(answer)
+        else:
+            await interaction.response.send_message('Неизвестный параметр')
+    logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
+
+
+@bot.slash_command(description="Учебная нагрузка на текущий месяц")
+async def workload(interaction: Interaction):
+    logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
+    parts = split_response(getting_workload_for_user(discord=str(interaction.channel_id)))
+    for i, part in enumerate(parts):
+        if i == 0:
+            await interaction.response.send_message(part)
+        else:
+            await interaction.send(part)
+    logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
+
+
+@bot.slash_command(description="Учебная нагрузка на следующий месяц")
+async def workload_next(interaction: Interaction):
+    logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
+    parts = split_response(getting_workload_for_user(next='YES', discord=str(interaction.channel_id)))
+    for i, part in enumerate(parts):
+        if i == 0:
+            await interaction.response.send_message(part)
+        else:
+            await interaction.send(part)
+    logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
+
+
 @bot.slash_command(name='about', description="Об авторе")
 async def about(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    await interaction.response.send_message('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com')
+    await interaction.response.send_message(AUTHOR_INFO)
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
 
 @bot.slash_command(name='help', description="Отображении ссылки на инструкцию")
 async def help_message(interaction: Interaction):
     logger.log('DISCORD', f'Request message from: <{str(interaction.channel_id)}>')
-    await interaction.response.send_message("Инструкция: https://nicarex.github.io/timetablebot-site/")
+    await interaction.response.send_message(f"Инструкция: {URL_INSTRUCTIONS}")
     logger.log('DISCORD', f'Response to message from: <{str(interaction.channel_id)}>')
 
 
@@ -120,7 +164,7 @@ async def add(
 
 @bot.command(pass_context=True)
 async def broadcast(ctx, *, msg):
-    if str(ctx.author) != 'Nicare#6529':
+    if str(ctx.author) != DISCORD_ADMIN_USERNAME:
         return True
     logger.log('DISCORD', 'Try to send broadcast messages')
     # Подключение к пользовательской базе данных
@@ -134,7 +178,7 @@ async def broadcast(ctx, *, msg):
         try:
             channel = bot.get_channel(int(user['discord_id']))
             await channel.send(msg)
-        except:
+        except Exception as exc:
             logger.log('DISCORD', f'Error happened while try to send broadcast message to channel <{user["discord_id"]}>')
         finally:
             logger.log('DISCORD', f'Sent broadcast message to channel <{user["discord_id"]}>')

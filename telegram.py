@@ -1,14 +1,17 @@
+import asyncio
+import socket
+import time
+
 import aiogram.exceptions
 import aiohttp.client_exceptions
-from aiogram import Bot, Dispatcher, types
+from aiogram import Bot, Dispatcher, types, Router
 from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
-from aiogram import Router
 from other import read_config
 from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
 from logger import logger
 from calendar_timetable import show_calendar_url_to_user
-import socket
-import time
+from constants import URL_INSTRUCTIONS, AUTHOR_INFO
+from messaging import split_response
 
 token = read_config(telegram='YES')
 bot = Bot(token=token)
@@ -65,32 +68,30 @@ KEYBOARD_USER_LESSON_TIME = types.ReplyKeyboardMarkup(
 @router.message(lambda message: message.text in ['/start', '/Start', '/Начать', '/начать', 'start', 'Start', 'Начать', 'начать'])
 async def echo(message: types.Message):
     logger.log('TELEGRAM', f'Message <{str(message.text)}>, chat <{str(message.chat.id)}>')
-    await message.answer(f"Привет, {str(message.from_user.username)}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\nhttps://nicarex.github.io/timetablebot-site/", reply_markup=KEYBOARD_USER_MAIN)
+    await message.answer(f"Привет, {str(message.from_user.username)}!\nЯ - бот, который помогает с расписанием\nНастоятельно рекомендую ознакомиться с инструкцией:\n{URL_INSTRUCTIONS}", reply_markup=KEYBOARD_USER_MAIN)
 
 
 @router.message(lambda message: message.text in ["Текущая неделя", "/текущая", '/текущая неделя', '/Текущая неделя', 'текущая неделя', 'Текущая'])
 async def timetable_now(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = str(getting_timetable_for_user(telegram=str(message.chat.id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, reply_markup=KEYBOARD_USER_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(telegram=str(message.chat.id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, reply_markup=KEYBOARD_USER_MAIN)
+        else:
+            await message.answer(part)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
 @router.message(lambda message: message.text in ["Следующая неделя", "/следующая", '/следующая неделя', '/Следующая неделя', 'следующая неделя', 'Следующая'])
 async def timetable_next(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    answer = str(getting_timetable_for_user(next='YES', telegram=str(message.chat.id))).split('Cut\n')
-    for i in answer:
-        if i != '':
-            if answer[-1] == i:
-                await message.answer('➡ ' + i, reply_markup=KEYBOARD_USER_MAIN)
-            else:
-                await message.answer('➡ ' + i)
+    parts = split_response(getting_timetable_for_user(next='YES', telegram=str(message.chat.id)))
+    for i, part in enumerate(parts):
+        if i == len(parts) - 1:
+            await message.answer(part, reply_markup=KEYBOARD_USER_MAIN)
+        else:
+            await message.answer(part)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
@@ -182,14 +183,14 @@ async def back(message: types.Message):
 @router.message(lambda message: message.text in ["Об авторе", "/Об авторе", "/об авторе", "об авторе"])
 async def about_author(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    await message.answer('Автор бота:\nстудент 307 группы\nНасонов Никита\n\nКонтакты:\nVK: https://vk.com/nicarex\nEmail: my.profile.protect@gmail.com', reply_markup=KEYBOARD_USER_SETTINGS)
+    await message.answer(AUTHOR_INFO, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
 @router.message(lambda message: message.text in ["Инструкция", "/Инструкция", "/инструкция", "инструкция"])
 async def instruction_link(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    await message.answer('https://nicarex.github.io/timetablebot-site/', reply_markup=KEYBOARD_USER_SETTINGS)
+    await message.answer(URL_INSTRUCTIONS, reply_markup=KEYBOARD_USER_SETTINGS)
     logger.log('TELEGRAM', f'Response to message from: <{str(message.chat.id)}>')
 
 
@@ -247,8 +248,6 @@ async def error_bot_blocked(*args, **kwargs):
 
 
 # Запуск сервера для aiogram 3.x
-import asyncio
-
 @logger.catch
 def start_telegram_server():
     async def main():
