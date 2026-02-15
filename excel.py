@@ -13,12 +13,13 @@ DAYS_OF_WEEK_NAMES = {
 }
 
 
-def create_excel_with_workload(teacher: str = None, group_id: str = None, next: str = None):
+def create_excel_with_workload(teacher: str = None, group_id: str = None, next: str = None, month_year: tuple = None):
     """
     Создает файл Excel с учебной нагрузкой за месяц.
     teacher - создать файл для преподавателя
     group_id - создать файл для группы
     next - следующий месяц
+    month_year - кортеж (месяц, год), например (2, 2025) для февраля 2025. Приоритет выше next.
     Возвращает путь к файлу или строку с ошибкой.
     """
     if teacher is None and group_id is None:
@@ -32,7 +33,9 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
     pendulum.set_locale('ru')
     dt = pendulum.now(tz=TIMEZONE)
 
-    if next is None:
+    if month_year is not None:
+        first_day_of_month = pendulum.datetime(month_year[1], month_year[0], 1, tz=TIMEZONE)
+    elif next is None:
         first_day_of_month = dt.start_of('month')
     else:
         first_day_of_month = dt.add(months=1).start_of('month')
@@ -116,7 +119,12 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
 
     # Генерация имени файла
     safe_name = (teacher or group_id).replace('/', '').replace('\\', '').replace(' ', '_')
-    suffix = '_next' if next else ''
+    if month_year is not None:
+        suffix = f'_{month_year[1]}_{month_year[0]:02d}'
+    elif next:
+        suffix = '_next'
+    else:
+        suffix = ''
     filepath = f'timetable-files/workload_{safe_name}{suffix}.xlsx'
 
     # Создаем директорию, если ее нет

@@ -15,6 +15,7 @@ from logger import logger
 from other import read_config, get_latest_file, connection_to_sql, sendMail, get_row_value, format_timetable_html
 from timetable import date_request, timetable, workload
 from excel import create_excel_with_workload
+from constants import GLOB_TIMETABLE_DB
 from platform_context import resolve_platform
 
 # Кэш уникальных групп и преподавателей из timetable-db.
@@ -1005,3 +1006,67 @@ def getting_workload_excel_for_user(next: str = None, email: str = None, vk_id_c
     logger.log('SQL', f'Generated {len(files)} workload excel files for {ctx.name} <{ctx.user_id}>')
     return files
 
+
+def get_all_months_from_timetable_db():
+    """Возвращает отсортированный список кортежей (месяц, год) всех доступных месяцев из БД расписания."""
+    db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
+    if db_timetable is None:
+        return []
+    conn = connection_to_sql(db_timetable)
+    c = conn.cursor()
+    rows = c.execute('SELECT DISTINCT "Date" FROM timetable').fetchall()
+    c.close()
+    conn.close()
+    months = set()
+    for row in rows:
+        date_str = row[0]
+        if not date_str:
+            continue
+        parts = date_str.split('-')
+        if len(parts) == 3:
+            try:
+                month = int(parts[1])
+                year = int(parts[2])
+                months.add((month, year))
+            except ValueError:
+                continue
+    return sorted(months, key=lambda x: (x[1], x[0]))
+
+
+def getting_workload_excel_all_months_for_user(email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
+    """Генерирует Excel-файлы нагрузки за все доступные месяцы из БД."""
+    ctx = resolve_platform(email=email, vk_id_chat=vk_id_chat, vk_id_user=vk_id_user, telegram=telegram)
+    if ctx is None:
+        logger.error('Incorrect workload excel all months request. No platform specified')
+        return []
+    logger.log('SQL', f'Incoming workload excel all months request for {ctx.name} = <{ctx.user_id}>')
+    conn = connection_to_sql('user_settings.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    c.execute(f'SELECT * FROM {ctx.table} WHERE {ctx.id_column} = ?', (ctx.user_id,))
+    row = c.fetchone()
+    c.close()
+    conn.close()
+    if row is None:
+        logger.log('SQL', f'No saved settings for {ctx.name} <{ctx.user_id}>')
+        return []
+    all_months = get_all_months_from_timetable_db()
+    if not all_months:
+        return []
+    files = []
+    if row['teacher'] is not None:
+        teachers = str(row['teacher']).replace('\r', '').split('\n')
+        for t in teachers:
+            for month_year in all_months:
+                result = create_excel_with_workload(teacher=str(t), month_year=month_year)
+                if result.endswith('.xlsx'):
+                    files.append(result)
+    if row['group_id'] is not None:
+        groups = str(row['group_id']).replace('\r', '').split('\n')
+        for g in groups:
+            for month_year in all_months:
+                result = create_excel_with_workload(group_id=str(g), month_year=month_year)
+                if result.endswith('.xlsx'):
+                    files.append(result)
+    logger.log('SQL', f'Generated {len(files)} workload excel files (all months) for {ctx.name} <{ctx.user_id}>')
+    return files

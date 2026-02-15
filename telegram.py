@@ -9,7 +9,7 @@ from aiogram import Bot, Dispatcher, types, Router
 from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
 from other import read_config
 from aiogram.types import FSInputFile
-from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, getting_workload_excel_for_user
+from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
 from logger import logger
 from calendar_timetable import show_calendar_url_to_user
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO
@@ -29,7 +29,7 @@ router = Router()
 KEYBOARD_USER_MAIN = types.ReplyKeyboardMarkup(
     keyboard=[
         [types.KeyboardButton(text='Текущая неделя'), types.KeyboardButton(text='Следующая неделя')],
-        [types.KeyboardButton(text='Нагрузка (Excel)'), types.KeyboardButton(text='Нагрузка след. месяц (Excel)')],
+        [types.KeyboardButton(text='Нагрузка (Excel)'), types.KeyboardButton(text='Нагрузка все месяцы (Excel)')],
         [types.KeyboardButton(text='Календарь'), types.KeyboardButton(text='Настройки')]
     ],
     resize_keyboard=True
@@ -125,12 +125,12 @@ async def workload_excel_now(message: types.Message):
     logger.log('TELEGRAM', f'Response to workload excel from: <{str(message.chat.id)}>')
 
 
-@router.message(lambda message: message.text in ["Нагрузка след. месяц (Excel)", "/нагрузка следующий", "нагрузка следующий месяц excel"])
-async def workload_excel_next(message: types.Message):
+@router.message(lambda message: message.text in ["Нагрузка все месяцы (Excel)", "/нагрузка все", "нагрузка все месяцы excel"])
+async def workload_excel_all_months(message: types.Message):
     logger.log('TELEGRAM', f'Request message: "{str(message.text)}" from: <{str(message.chat.id)}>')
-    await message.answer('Генерация файла нагрузки на следующий месяц, подождите...', reply_markup=KEYBOARD_USER_MAIN)
+    await message.answer('Генерация файлов нагрузки за все месяцы, подождите...', reply_markup=KEYBOARD_USER_MAIN)
     try:
-        files = await run_sync(getting_workload_excel_for_user, next='YES', telegram=str(message.chat.id))
+        files = await run_sync(getting_workload_excel_all_months_for_user, telegram=str(message.chat.id))
         if not files:
             await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', reply_markup=KEYBOARD_USER_MAIN)
         else:
@@ -138,12 +138,13 @@ async def workload_excel_next(message: types.Message):
                 try:
                     document = FSInputFile(filepath)
                     await bot.send_document(chat_id=message.chat.id, document=document)
+                    await asyncio.sleep(0.5)
                 except Exception as e:
                     logger.error(f'Error sending workload file {filepath}: {str(e)}', exc_info=True)
     except Exception as e:
-        logger.error(f'Error in workload_excel_next: {str(e)}', exc_info=True)
-        await message.answer('Произошла ошибка при генерации файла нагрузки. Пожалуйста, попробуйте позже.', reply_markup=KEYBOARD_USER_MAIN)
-    logger.log('TELEGRAM', f'Response to workload excel next from: <{str(message.chat.id)}>')
+        logger.error(f'Error in workload_excel_all_months: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файлов нагрузки. Пожалуйста, попробуйте позже.', reply_markup=KEYBOARD_USER_MAIN)
+    logger.log('TELEGRAM', f'Response to workload excel all months from: <{str(message.chat.id)}>')
 
 
 @router.message(lambda message: message.text in ["Настройки", '/настройки', '/Настройки', 'настройки'])

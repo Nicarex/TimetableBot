@@ -9,7 +9,7 @@ from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, Key
 from vkbottle.bot import Bot, Message
 from other import read_config
 from calendar_timetable import show_calendar_url_to_user
-from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user, getting_workload_excel_for_user
+from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
 import aiohttp
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO, VK_CLUB_ID
 from messaging import split_response
@@ -32,7 +32,7 @@ KEYBOARD_USER_MAIN = (
     .add(Text("Следующая неделя"), color=KeyboardButtonColor.POSITIVE)
     .row()
     .add(Text("Нагрузка (Excel)"), color=KeyboardButtonColor.PRIMARY)
-    .add(Text("Нагрузка след. месяц (Excel)"), color=KeyboardButtonColor.POSITIVE)
+    .add(Text("Нагрузка все месяцы (Excel)"), color=KeyboardButtonColor.POSITIVE)
     .row()
     .add(Text("Календарь"), color=KeyboardButtonColor.SECONDARY)
     .add(Text("Настройки"), color=KeyboardButtonColor.NEGATIVE)
@@ -93,7 +93,7 @@ KEYBOARD_CHAT_MAIN = (
     .row()
     .add(Text("Нагрузка (Excel)"), color=KeyboardButtonColor.PRIMARY)
     .row()
-    .add(Text("Нагрузка след. месяц (Excel)"), color=KeyboardButtonColor.POSITIVE)
+    .add(Text("Нагрузка все месяцы (Excel)"), color=KeyboardButtonColor.POSITIVE)
     .row()
     .add(Text("Настройки"), color=KeyboardButtonColor.NEGATIVE)
     .get_json()
@@ -237,21 +237,22 @@ async def user_workload_excel_now(message: Message):
     logger.log('VK', 'Response to workload excel from vk user: "' + str(message.from_id) + '"')
 
 
-@bot.on.private_message(text="Нагрузка след. месяц (Excel)")
-async def user_workload_excel_next(message: Message):
+@bot.on.private_message(text="Нагрузка все месяцы (Excel)")
+async def user_workload_excel_all_months(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk user: "' + str(message.from_id) + '"')
-    await message.answer('Генерация файла нагрузки на следующий месяц, подождите...', keyboard=KEYBOARD_USER_MAIN)
+    await message.answer('Генерация файлов нагрузки за все месяцы, подождите...', keyboard=KEYBOARD_USER_MAIN)
     try:
-        files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_user=str(message.from_id))
+        files = await run_sync(getting_workload_excel_all_months_for_user, vk_id_user=str(message.from_id))
         if not files:
             await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_USER_MAIN)
         else:
             for filepath in files:
                 await upload_and_send_doc_vk(message, filepath, message.from_id)
+                await asyncio.sleep(0.5)
     except Exception as e:
-        logger.error(f'Error in user_workload_excel_next: {str(e)}', exc_info=True)
-        await message.answer('Произошла ошибка при генерации файла нагрузки. Пожалуйста, попробуйте позже.', keyboard=KEYBOARD_USER_MAIN)
-    logger.log('VK', 'Response to workload excel next from vk user: "' + str(message.from_id) + '"')
+        logger.error(f'Error in user_workload_excel_all_months: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файлов нагрузки. Пожалуйста, попробуйте позже.', keyboard=KEYBOARD_USER_MAIN)
+    logger.log('VK', 'Response to workload excel all months from vk user: "' + str(message.from_id) + '"')
 
 
 @bot.on.private_message(text="Начать")
@@ -502,22 +503,23 @@ async def chat_workload_excel_now(message: Message):
     logger.log('VK', 'Response to workload excel from vk chat: "' + str(message.chat_id) + '"')
 
 
-@bot.on.chat_message(text=["Нагрузка след. месяц (Excel)", f'[club{VK_CLUB_ID}|@bot_agz] Нагрузка след. месяц (Excel)'])
-async def chat_workload_excel_next(message: Message):
+@bot.on.chat_message(text=["Нагрузка все месяцы (Excel)", f'[club{VK_CLUB_ID}|@bot_agz] Нагрузка все месяцы (Excel)'])
+async def chat_workload_excel_all_months(message: Message):
     logger.log('VK', 'Request message: "' + message.text + '" from vk chat: "' + str(message.chat_id) + '"')
-    await message.answer('Генерация файла нагрузки на следующий месяц, подождите...')
+    await message.answer('Генерация файлов нагрузки за все месяцы, подождите...')
     try:
-        files = await run_sync(getting_workload_excel_for_user, next='YES', vk_id_chat=str(message.chat_id))
+        files = await run_sync(getting_workload_excel_all_months_for_user, vk_id_chat=str(message.chat_id))
         if not files:
             await message.answer('Нет сохраненных преподавателей или групп для генерации нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
         else:
             peer_id = 2000000000 + message.chat_id
             for filepath in files:
                 await upload_and_send_doc_vk(message, filepath, peer_id)
+                await asyncio.sleep(0.5)
     except Exception as e:
-        logger.error(f'Error in chat_workload_excel_next: {str(e)}', exc_info=True)
-        await message.answer('Произошла ошибка при генерации файла нагружки', keyboard=KEYBOARD_CHAT_MAIN)
-    logger.log('VK', 'Response to workload excel next from vk chat: "' + str(message.chat_id) + '"')
+        logger.error(f'Error in chat_workload_excel_all_months: {str(e)}', exc_info=True)
+        await message.answer('Произошла ошибка при генерации файлов нагрузки', keyboard=KEYBOARD_CHAT_MAIN)
+    logger.log('VK', 'Response to workload excel all months from vk chat: "' + str(message.chat_id) + '"')
 
 
 @bot.on.chat_message(text=["Вернуться назад", f'[club{VK_CLUB_ID}|@bot_agz] Вернуться назад'])

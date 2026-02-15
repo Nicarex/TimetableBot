@@ -8,7 +8,7 @@ from logger import logger
 from imap_tools import MailBox, A
 from glob import glob
 from pathlib import Path
-from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user, getting_workload_excel_for_user
+from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
 from calendar_timetable import show_calendar_url_to_user
 
 
@@ -95,8 +95,8 @@ def processingMail():
                 answer = ''
                 excel_files = []
                 if text.find('нагрузк') != -1 and (text.find('excel') != -1 or text.find('файл') != -1):
-                    if text.find('следующ') != -1:
-                        excel_files = getting_workload_excel_for_user(next='YES', email=msg.from_)
+                    if text.find('все месяц') != -1:
+                        excel_files = getting_workload_excel_all_months_for_user(email=msg.from_)
                     else:
                         excel_files = getting_workload_excel_for_user(email=msg.from_)
                     if excel_files:
