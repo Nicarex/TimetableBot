@@ -55,6 +55,7 @@ class _MockWorksheet:
     def set_column(self, *a, **kw): pass
     def merge_range(self, *a, **kw): pass
     def write(self, *a, **kw): pass
+    def write_formula(self, *a, **kw): pass
 
 class _MockWorkbook:
     def __init__(self, filepath):

@@ -196,20 +196,16 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
         worksheet.write(row_num, 8, lesson['hours'], fmt_cell)
         row_num += 1
 
-    # Итого
-    total_hours = sum(l['hours'] for l in lessons)
+    # Итого (формула SUM по колонке "Часы")
+    data_first_excel_row = 3  # данные начинаются с 0-based row 2 = Excel row 3
+    data_last_excel_row = row_num  # row_num (0-based) = Excel row_num+1, последняя строка данных = row_num-1 (0-based) = row_num (Excel)
     worksheet.merge_range(row_num, 0, row_num, 7, 'ИТОГО', fmt_total)
-    worksheet.write(row_num, 8, total_hours, fmt_total)
+    worksheet.write_formula(row_num, 8, f'=SUM(I{data_first_excel_row}:I{data_last_excel_row})', fmt_total)
+    total_row = row_num  # запоминаем для возможных ссылок
     row_num += 2
 
     # Сводка по типам занятий
-    type_summary = {}
-    for lesson in lessons:
-        st = lesson['subj_type']
-        if st not in type_summary:
-            type_summary[st] = {'count': 0, 'hours': 0.0}
-        type_summary[st]['count'] += 1
-        type_summary[st]['hours'] += lesson['hours']
+    lesson_types = sorted(set(l['subj_type'] for l in lessons), key=str)
 
     worksheet.merge_range(row_num, 0, row_num, 2, 'Итоги по типам занятий', fmt_summary_header)
     row_num += 1
@@ -218,15 +214,27 @@ def create_excel_with_workload(teacher: str = None, group_id: str = None, next: 
     worksheet.write(row_num, 2, 'Часы', fmt_header)
     row_num += 1
 
-    for subj_type, data in sorted(type_summary.items(), key=lambda x: str(x[0])):
+    summary_data_first_row = row_num  # первая строка данных сводки (0-based)
+    for subj_type in lesson_types:
         worksheet.write(row_num, 0, subj_type, fmt_cell_left)
-        worksheet.write(row_num, 1, data['count'], fmt_cell)
-        worksheet.write(row_num, 2, data['hours'], fmt_cell)
+        # COUNTIF: считаем кол-во пар данного типа в колонке F (Тип занятия)
+        worksheet.write_formula(row_num, 1,
+            f'=COUNTIF(F${data_first_excel_row}:F${data_last_excel_row},A{row_num + 1})',
+            fmt_cell)
+        # SUMIF: суммируем часы для данного типа
+        worksheet.write_formula(row_num, 2,
+            f'=SUMIF(F${data_first_excel_row}:F${data_last_excel_row},A{row_num + 1},I${data_first_excel_row}:I${data_last_excel_row})',
+            fmt_cell)
         row_num += 1
 
+    summary_data_last_excel_row = row_num  # row_num уже увеличен, последняя строка = row_num-1 (0-based) = row_num (Excel)
     worksheet.write(row_num, 0, 'ИТОГО', fmt_total_left)
-    worksheet.write(row_num, 1, sum(d['count'] for d in type_summary.values()), fmt_total)
-    worksheet.write(row_num, 2, total_hours, fmt_total)
+    worksheet.write_formula(row_num, 1,
+        f'=SUM(B{summary_data_first_row + 1}:B{summary_data_last_excel_row})',
+        fmt_total)
+    worksheet.write_formula(row_num, 2,
+        f'=SUM(C{summary_data_first_row + 1}:C{summary_data_last_excel_row})',
+        fmt_total)
 
     workbook.close()
     logger.log('EXCEL', f'Excel workload file created: {filepath}')
