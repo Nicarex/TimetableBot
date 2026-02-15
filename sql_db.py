@@ -14,7 +14,7 @@ from constants import MESSAGE_PREFIX, MESSAGE_SPLIT_SENTINEL
 from logger import logger
 from other import read_config, get_latest_file, connection_to_sql, sendMail, get_row_value, format_timetable_html
 from timetable import date_request, timetable, workload
-from excel import create_excel_with_workload
+from excel import create_excel_with_workload, create_excel_with_workload_all_months
 from constants import GLOB_TIMETABLE_DB
 from platform_context import resolve_platform
 
@@ -1034,7 +1034,7 @@ def get_all_months_from_timetable_db():
 
 
 def getting_workload_excel_all_months_for_user(email: str = None, vk_id_chat: str = None, vk_id_user: str = None, telegram: str = None):
-    """Генерирует Excel-файлы нагрузки за все доступные месяцы из БД."""
+    """Генерирует Excel-файл нагрузки за все доступные месяцы (один файл на преподавателя/группу, каждый месяц — отдельный лист)."""
     ctx = resolve_platform(email=email, vk_id_chat=vk_id_chat, vk_id_user=vk_id_user, telegram=telegram)
     if ctx is None:
         logger.error('Incorrect workload excel all months request. No platform specified')
@@ -1057,16 +1057,14 @@ def getting_workload_excel_all_months_for_user(email: str = None, vk_id_chat: st
     if row['teacher'] is not None:
         teachers = str(row['teacher']).replace('\r', '').split('\n')
         for t in teachers:
-            for month_year in all_months:
-                result = create_excel_with_workload(teacher=str(t), month_year=month_year)
-                if result.endswith('.xlsx'):
-                    files.append(result)
+            result = create_excel_with_workload_all_months(teacher=str(t), all_months=all_months)
+            if result.endswith('.xlsx'):
+                files.append(result)
     if row['group_id'] is not None:
         groups = str(row['group_id']).replace('\r', '').split('\n')
         for g in groups:
-            for month_year in all_months:
-                result = create_excel_with_workload(group_id=str(g), month_year=month_year)
-                if result.endswith('.xlsx'):
-                    files.append(result)
-    logger.log('SQL', f'Generated {len(files)} workload excel files (all months) for {ctx.name} <{ctx.user_id}>')
+            result = create_excel_with_workload_all_months(group_id=str(g), all_months=all_months)
+            if result.endswith('.xlsx'):
+                files.append(result)
+    logger.log('SQL', f'Generated {len(files)} all-months workload excel file(s) for {ctx.name} <{ctx.user_id}>')
     return files
