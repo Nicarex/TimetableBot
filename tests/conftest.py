@@ -178,6 +178,7 @@ _pendulum = sys.modules['pendulum']
 _pendulum.now = lambda *a, **kw: _MockDateTime()
 _pendulum.set_locale = lambda *a, **kw: None
 _pendulum.from_format = lambda *a, **kw: _MockDateTime()
+_pendulum.datetime = lambda year, month, day, **kw: _MockDateTime(datetime(year, month, day))
 _pendulum.MONDAY = 'MONDAY'
 _pendulum.SUNDAY = 'SUNDAY'
 

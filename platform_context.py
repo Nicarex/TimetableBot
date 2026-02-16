@@ -1,7 +1,7 @@
 """
 Абстракция платформы для устранения дублирования в sql_db.py.
-Каждая платформа (email, vk_user, vk_chat, telegram, discord) описывается
-через PlatformContext с именем таблицы, столбцом ID и значением ID.
+Единая таблица users с колонкой platform, поэтому контекст хранит
+только имя платформы и ID пользователя.
 """
 from dataclasses import dataclass
 from typing import Optional
@@ -9,10 +9,8 @@ from typing import Optional
 
 @dataclass
 class PlatformContext:
-    name: str        # 'email', 'vk_user', 'vk_chat', 'telegram', 'discord'
-    table: str       # имя таблицы в user_settings.db
-    id_column: str   # столбец ID (email, vk_id, telegram_id, discord_id)
-    user_id: str     # значение ID пользователя
+    platform: str    # 'email', 'vk_user', 'vk_chat', 'telegram', 'discord'
+    user_id: str     # значение platform_id пользователя
 
 
 def resolve_platform(
@@ -24,13 +22,13 @@ def resolve_platform(
 ) -> Optional[PlatformContext]:
     """Возвращает PlatformContext для первого не-None аргумента."""
     if email is not None:
-        return PlatformContext('email', 'email', 'email', email)
+        return PlatformContext('email', email)
     if vk_id_chat is not None:
-        return PlatformContext('vk_chat', 'vk_chat', 'vk_id', vk_id_chat)
+        return PlatformContext('vk_chat', vk_id_chat)
     if vk_id_user is not None:
-        return PlatformContext('vk_user', 'vk_user', 'vk_id', vk_id_user)
+        return PlatformContext('vk_user', vk_id_user)
     if telegram is not None:
-        return PlatformContext('telegram', 'telegram', 'telegram_id', telegram)
+        return PlatformContext('telegram', telegram)
     if discord is not None:
-        return PlatformContext('discord', 'discord', 'discord_id', discord)
+        return PlatformContext('discord', discord)
     return None

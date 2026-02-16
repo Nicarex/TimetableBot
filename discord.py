@@ -182,17 +182,17 @@ async def broadcast(ctx, *, msg):
     conn = connection_to_sql('user_settings.db')
     conn.row_factory = sqlite3.Row
     c = conn.cursor()
-    users = c.execute('SELECT * FROM discord WHERE notification = 1').fetchall()
+    users = c.execute("SELECT * FROM users WHERE platform = 'discord' AND notification = 1").fetchall()
     c.close()
     conn.close()
     for user in users:
         try:
-            channel = bot.get_channel(int(user['discord_id']))
+            channel = bot.get_channel(int(user['platform_id']))
             await channel.send(msg)
         except Exception as exc:
-            logger.log('DISCORD', f'Error happened while try to send broadcast message to channel <{user["discord_id"]}>')
+            logger.log('DISCORD', f'Error happened while try to send broadcast message to channel <{user["platform_id"]}>')
         finally:
-            logger.log('DISCORD', f'Sent broadcast message to channel <{user["discord_id"]}>')
+            logger.log('DISCORD', f'Sent broadcast message to channel <{user["platform_id"]}>')
 
 
 # Запуск сервера

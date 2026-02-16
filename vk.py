@@ -9,7 +9,8 @@ from vkbottle import GroupEventType, GroupTypes, Keyboard, Text, VKAPIError, Key
 from vkbottle.bot import Bot, Message
 from other import read_config
 from calendar_timetable import show_calendar_url_to_user
-from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
+from sql_db import search_group_and_teacher_in_request, display_saved_settings, delete_all_saved_groups_and_teachers, getting_timetable_for_user, enable_and_disable_notifications, enable_and_disable_lesson_time, getting_workload_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user, send_notifications_vk_chat, send_notifications_vk_user
+import threading
 import aiohttp
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO, VK_CLUB_ID
 from messaging import split_response
@@ -568,9 +569,26 @@ async def group_join_handler(event: GroupTypes.GroupJoin):
         pass
 
 
+def _notification_listener(notification_queue):
+    """Фоновый поток: слушает очередь и рассылает VK-уведомления."""
+    while True:
+        try:
+            event = notification_queue.get()
+            logger.log('VK', 'Received notification event from queue')
+            send_notifications_vk_chat(**event)
+            send_notifications_vk_user(**event)
+            logger.log('VK', 'Successfully sent VK notifications from queue event')
+        except Exception as e:
+            logger.error(f'Error in VK notification listener: {e}')
+
+
 # Запуск сервера
 @logger.catch
-def start_vk_server():
+def start_vk_server(notification_queue=None):
+    if notification_queue is not None:
+        t = threading.Thread(target=_notification_listener, args=(notification_queue,), daemon=True)
+        t.start()
+        logger.log('VK', 'Notification listener thread started')
     logger.log('VK', 'VK server started...')
     try:
         loop = asyncio.new_event_loop()

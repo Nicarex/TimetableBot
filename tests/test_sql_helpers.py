@@ -5,11 +5,11 @@ import pytest
 from sql_db import (
     _build_saved_response,
     _build_added_response,
-    _find_already_saved,
-    _update_column_values,
-    _prepare_insert_values,
-    get_row_value,
+    _get_user,
+    _get_user_teachers,
+    _get_user_groups,
 )
+from other import get_row_value
 
 
 # --- _build_saved_response ---
@@ -52,7 +52,7 @@ class TestBuildAddedResponse:
         assert 'Уже сохранено' in result
         assert 'Добавлены преподаватели: Петров' in result
         assert 'Добавлены группы: Б-202' in result
-        assert '\n\n' in result  # separator between existing and added
+        assert '\n\n' in result
 
     def test_no_existing(self):
         result = _build_added_response('', 'Петров', 'Б-202')
@@ -77,101 +77,70 @@ class TestBuildAddedResponse:
         assert result == ''
 
 
-# --- _find_already_saved ---
+# --- _get_user, _get_user_teachers, _get_user_groups ---
 
-class TestFindAlreadySaved:
-    def test_finds_existing(self):
-        result = _find_already_saved(['Иванов А.Б.', 'Петров В.Г.'], 'Иванов А.Б.\nСидоров')
-        assert 'Иванов А.Б.' in result
-        assert 'Петров' not in result
-
-    def test_none_saved(self):
-        result = _find_already_saved(['Иванов'], None)
-        assert result == ''
-
-    def test_empty_matched(self):
-        result = _find_already_saved([], 'Иванов')
-        assert result == ''
-
-    def test_all_match(self):
-        result = _find_already_saved(['A', 'B'], 'A\nB')
-        assert 'A' in result
-        assert 'B' in result
-
-    def test_none_match(self):
-        result = _find_already_saved(['X', 'Y'], 'A\nB')
-        assert result == ''
-
-
-# --- _prepare_insert_values ---
-
-class TestPrepareInsertValues:
-    def test_single_item(self):
-        db_val, display_val = _prepare_insert_values(['Иванов'])
-        assert db_val == 'Иванов'
-        assert display_val == 'Иванов'
-
-    def test_multiple_items(self):
-        db_val, display_val = _prepare_insert_values(['Иванов', 'Петров'])
-        assert db_val == 'Иванов\nПетров'
-        assert display_val == 'Иванов Петров'
-
-    def test_empty_list(self):
-        db_val, display_val = _prepare_insert_values([])
-        assert db_val is None
-        assert display_val == ''
-
-
-# --- _update_column_values ---
-
-class TestUpdateColumnValues:
+class TestUserHelpers:
     def setup_method(self):
-        """Создаём in-memory SQLite базу для тестов."""
         self.conn = sqlite3.connect(':memory:')
+        self.conn.execute('PRAGMA foreign_keys=ON')
         self.conn.row_factory = sqlite3.Row
-        self.conn.execute('CREATE TABLE test_table (id TEXT, teacher TEXT, group_id TEXT)')
+        self.conn.execute("""CREATE TABLE users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            platform TEXT NOT NULL,
+            platform_id TEXT NOT NULL,
+            notification INTEGER NOT NULL DEFAULT 1,
+            lesson_time INTEGER NOT NULL DEFAULT 1,
+            UNIQUE(platform, platform_id))""")
+        self.conn.execute("""CREATE TABLE user_groups (
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            group_id TEXT NOT NULL,
+            PRIMARY KEY (user_id, group_id))""")
+        self.conn.execute("""CREATE TABLE user_teachers (
+            user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            teacher TEXT NOT NULL,
+            PRIMARY KEY (user_id, teacher))""")
+        self.conn.execute(
+            "INSERT INTO users (platform, platform_id) VALUES ('email', 'test@mail.com')")
+        self.conn.execute(
+            "INSERT INTO user_teachers (user_id, teacher) VALUES (1, 'Иванов А.Б.')")
+        self.conn.execute(
+            "INSERT INTO user_teachers (user_id, teacher) VALUES (1, 'Петров В.Г.')")
+        self.conn.execute(
+            "INSERT INTO user_groups (user_id, group_id) VALUES (1, '307')")
+        self.conn.commit()
         self.cursor = self.conn.cursor()
 
     def teardown_method(self):
         self.conn.close()
 
-    def test_adds_new_value_to_existing(self):
-        self.conn.execute("INSERT INTO test_table VALUES ('user1', 'Иванов', NULL)")
-        self.conn.commit()
-        result = _update_column_values(
-            self.cursor, 'test_table', 'teacher', 'id', 'user1',
-            ['Петров'], 'Иванов')
-        self.conn.commit()
-        assert 'Петров' in result
-        row = self.conn.execute("SELECT teacher FROM test_table WHERE id='user1'").fetchone()
-        assert 'Иванов\nПетров' == row['teacher']
+    def test_get_user_found(self):
+        user = _get_user(self.cursor, 'email', 'test@mail.com')
+        assert user is not None
+        assert user['platform_id'] == 'test@mail.com'
 
-    def test_skips_already_existing(self):
-        self.conn.execute("INSERT INTO test_table VALUES ('user1', 'Иванов', NULL)")
-        self.conn.commit()
-        result = _update_column_values(
-            self.cursor, 'test_table', 'teacher', 'id', 'user1',
-            ['Иванов'], 'Иванов')
-        assert result == ''
+    def test_get_user_not_found(self):
+        user = _get_user(self.cursor, 'email', 'nonexistent@mail.com')
+        assert user is None
 
-    def test_adds_to_null_column(self):
-        self.conn.execute("INSERT INTO test_table VALUES ('user1', NULL, NULL)")
-        self.conn.commit()
-        result = _update_column_values(
-            self.cursor, 'test_table', 'teacher', 'id', 'user1',
-            ['Иванов'], None)
-        self.conn.commit()
-        assert 'Иванов' in result
-        row = self.conn.execute("SELECT teacher FROM test_table WHERE id='user1'").fetchone()
-        assert row['teacher'] == 'Иванов'
+    def test_get_user_teachers(self):
+        teachers = _get_user_teachers(self.cursor, 1)
+        assert set(teachers) == {'Иванов А.Б.', 'Петров В.Г.'}
 
-    def test_empty_matched_items(self):
-        self.conn.execute("INSERT INTO test_table VALUES ('user1', 'Иванов', NULL)")
+    def test_get_user_teachers_empty(self):
+        self.conn.execute("INSERT INTO users (platform, platform_id) VALUES ('vk_user', '123')")
         self.conn.commit()
-        result = _update_column_values(
-            self.cursor, 'test_table', 'teacher', 'id', 'user1',
-            [], 'Иванов')
-        assert result == ''
+        teachers = _get_user_teachers(self.cursor, 2)
+        assert teachers == []
+
+    def test_get_user_groups(self):
+        groups = _get_user_groups(self.cursor, 1)
+        assert groups == ['307']
+
+    def test_get_user_groups_empty(self):
+        self.conn.execute("INSERT INTO users (platform, platform_id) VALUES ('vk_user', '123')")
+        self.conn.commit()
+        groups = _get_user_groups(self.cursor, 2)
+        assert groups == []
 
 
 # --- get_row_value ---

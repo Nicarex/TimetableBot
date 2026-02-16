@@ -243,30 +243,28 @@ def show_calendar_url_to_user(email: str = None, vk_id_chat: str = None, vk_id_u
     if ctx is None:
         logger.error('Incorrect request to show calendar url to user. Email, vk chat, vk user, telegram and discord are undefined')
         return 'Что-то пошло не так при обработке запроса, повторите позже'
-    logger.log('CALENDAR', f'Request to show calendar urls for {ctx.name} = <{ctx.user_id}>')
+    logger.log('CALENDAR', f'Request to show calendar urls for {ctx.platform} = <{ctx.user_id}>')
     conn = connection_to_sql(name='user_settings.db')
     conn.row_factory = Row
     c = conn.cursor()
-    user_row = c.execute(f'SELECT * FROM {ctx.table} WHERE {ctx.id_column} = ?', (ctx.user_id,)).fetchone()
+    user_row = c.execute(
+        'SELECT * FROM users WHERE platform = ? AND platform_id = ?',
+        (ctx.platform, ctx.user_id)
+    ).fetchone()
+    if user_row:
+        teachers_list = [r['teacher'] for r in c.execute(
+            'SELECT teacher FROM user_teachers WHERE user_id = ?', (user_row['id'],)).fetchall()]
+        groups_list = [r['group_id'] for r in c.execute(
+            'SELECT group_id FROM user_groups WHERE user_id = ?', (user_row['id'],)).fetchall()]
     c.close()
     conn.close()
 
     # Если есть сохраненные параметры для пользователя
     if user_row:
         # Проверка на сохраненные параметры для пользователя
-        if user_row['teacher'] is None and user_row['group_id'] is None:
-            logger.log('CALENDAR', f"Cant show calendar because no saved teachers and groups for email = <{str(email)}>")
+        if not teachers_list and not groups_list:
+            logger.log('CALENDAR', f"Cant show calendar because no saved teachers and groups for {ctx.platform} = <{ctx.user_id}>")
             return '\nНевозможно отобразить календарь, так как для вас нет сохраненных преподавателей или групп'
-        teachers_list = []
-        groups_list = []
-        if user_row['teacher'] is not None:
-            teachers_list = str(user_row['teacher'])
-            teachers_list = teachers_list.replace('\r', '')
-            teachers_list = teachers_list.split('\n')
-        if user_row['group_id'] is not None:
-            groups_list = str(user_row['group_id'])
-            groups_list = groups_list.replace('\r', '')
-            groups_list = groups_list.split('\n')
 
         # Подключение к  бд
         conn = connection_to_sql(name='calendars_list.db')

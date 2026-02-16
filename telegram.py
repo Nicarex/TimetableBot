@@ -9,7 +9,8 @@ from aiogram import Bot, Dispatcher, types, Router
 from aiogram.exceptions import TelegramForbiddenError, TelegramNetworkError
 from other import read_config
 from aiogram.types import FSInputFile
-from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
+from sql_db import getting_timetable_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user, send_notifications_telegram
+import threading
 from logger import logger
 from calendar_timetable import show_calendar_url_to_user
 from constants import URL_INSTRUCTIONS, AUTHOR_INFO
@@ -303,9 +304,26 @@ async def error_bot_blocked(*args, **kwargs):
 
 
 
+def _notification_listener(notification_queue):
+    """Фоновый поток: слушает очередь и рассылает Telegram-уведомления."""
+    while True:
+        try:
+            event = notification_queue.get()
+            logger.log('TELEGRAM', 'Received notification event from queue')
+            send_notifications_telegram(**event)
+            logger.log('TELEGRAM', 'Successfully sent notifications from queue event')
+        except Exception as e:
+            logger.error(f'Error in telegram notification listener: {e}')
+
+
 # Запуск сервера для aiogram 3.x
 @logger.catch
-def start_telegram_server():
+def start_telegram_server(notification_queue=None):
+    if notification_queue is not None:
+        t = threading.Thread(target=_notification_listener, args=(notification_queue,), daemon=True)
+        t.start()
+        logger.log('TELEGRAM', 'Notification listener thread started')
+
     async def main():
         try:
             logger.log('TELEGRAM', 'Telegram server started...')

@@ -1,6 +1,7 @@
 from logger import logger
 from glob import glob
 import os
+from contextlib import contextmanager
 from chardet import detect
 import sqlite3
 from pathlib import Path
@@ -13,6 +14,18 @@ from constants import (
     TIMEZONE, URL_INSTRUCTIONS, SQL_TIMEOUT, MAIL_RETRY_WAIT,
     DIR_TIMETABLE_DBS, DIR_TIMETABLE_FILES, DIR_DOWNLOADS, DIR_LOG, DIR_CALENDARS, DIR_DBS,
 )
+
+
+# ─── Кастомные исключения ───
+
+class DatabaseError(Exception):
+    """Ошибка при работе с базой данных."""
+
+class ConfigError(Exception):
+    """Ошибка конфигурации (отсутствует файл или поле)."""
+
+class NotificationError(Exception):
+    """Ошибка при отправке уведомления."""
 
 
 def strip_email_quotes(text: str) -> str:
@@ -129,8 +142,9 @@ def read_config(email: str = None, vk: str = None, vk_send: str = None, github: 
         elif discord is not None:
             token = str(config['DISCORD']['token'])
             return token
-    except KeyError:
-        logger.critical('Error when try to read config data. Maybe file not exist or fields are wrong')
+    except KeyError as e:
+        logger.critical(f'Error when try to read config data. Missing key: {e}. Check config.ini')
+        return None
 
 
 def create_required_dirs():
@@ -155,8 +169,8 @@ def sendMail(to_email, subject, text, html=None, attachments=None):
         yag.send(to=to_email, subject=subject, contents=contents, attachments=attachments)
         logger.log('MAIL', 'Message was sent to <' + to_email + '>, with subject: "' + subject + '"')
     except Exception as exc:
-        logger.log('MAIL', f'Cant send mail to {to_email}: {exc}, wait {MAIL_RETRY_WAIT} sec...')
-        time.sleep(MAIL_RETRY_WAIT)
+        logger.log('MAIL', f'Cant send mail to {to_email}: {exc}')
+        raise NotificationError(f'Failed to send email to {to_email}: {exc}') from exc
 
 # Получает последний измененный файл
 def get_latest_file(path: str):
@@ -231,18 +245,34 @@ def connection_to_sql(name: str):
             name=f'dbs/{name}'
         conn = sqlite3.connect(database=name, timeout=SQL_TIMEOUT)
         try:
-            # Improve concurrency for multiple processes by enabling WAL mode
             conn.execute('PRAGMA journal_mode=WAL;')
             conn.execute('PRAGMA synchronous=NORMAL;')
             conn.execute('PRAGMA foreign_keys=ON;')
-        except Exception:
-            # If PRAGMA execution fails, continue with the connection (best-effort)
-            pass
+        except sqlite3.Error as pragma_err:
+            logger.warning(f'PRAGMA execution failed for <{name}>: {pragma_err}')
         logger.log('SQL', 'Successfully connect to sql db <' + name + '>')
     except sqlite3.Error as error:
         logger.error('Failed to read data from sql, error: ' + str(error))
         return None
     return conn
+
+
+@contextmanager
+def db_connection(name: str, row_factory=None):
+    """Контекстный менеджер для БД: auto-commit, auto-rollback, auto-close."""
+    conn = connection_to_sql(name)
+    if conn is None:
+        raise DatabaseError(f'Не удалось подключиться к БД: {name}')
+    if row_factory:
+        conn.row_factory = row_factory
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
 
 
 # Конвертирует CSV-файлы в SQL-файл

@@ -1,6 +1,6 @@
 import imaplib
 from socket import gaierror
-from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail, strip_email_quotes, strip_html_quotes
+from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail, strip_email_quotes, strip_html_quotes, NotificationError
 import os
 import time
 from constants import MAIL_RETRY_WAIT
@@ -8,13 +8,13 @@ from logger import logger
 from imap_tools import MailBox, A
 from glob import glob
 from pathlib import Path
-from sql_db import getting_the_difference_in_sql_files_and_sending_them, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
+from sql_db import compute_timetable_differences, send_notifications_email, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
 from calendar_timetable import show_calendar_url_to_user
 
 
 # Чтение почты и выполнение действий
 @logger.catch
-def processingMail():
+def processingMail(notification_queue=None):
     logger.log('MAIL', 'Email server started...')
     login_info = read_config(email='YES')
     while True:
@@ -46,8 +46,17 @@ def processingMail():
                     list_of_files = glob('timetable-files/*')
                     for file in list_of_files:
                         os.remove(file)
-                    if getting_the_difference_in_sql_files_and_sending_them() is False:
+                    event = compute_timetable_differences()
+                    if event is None:
                         logger.log('MAIL', 'Difference wasnt sent')
+                    else:
+                        # Email-уведомления рассылает Mail-процесс напрямую
+                        send_notifications_email(**event)
+                        logger.log('MAIL', 'Successfully sent the differences by email')
+                        # Остальным ботам — через очередь
+                        if notification_queue is not None:
+                            notification_queue.put(event)
+                            logger.log('MAIL', 'Notification event put into queue for other bots')
 
             # Получение непрочитанных сообщений с ярлыком Settings
             messages_set = mailbox.fetch(A(seen=False, gmail_label='Settings'))
@@ -133,6 +142,10 @@ def processingMail():
         except imaplib.IMAP4.error:
             logger.log('MAIL', 'Imaplib error. Continue...')
             # Ждем 2 минуты появления интернета
+            time.sleep(MAIL_RETRY_WAIT)
+            continue
+        except NotificationError as e:
+            logger.log('MAIL', f'Failed to send email: {e}')
             time.sleep(MAIL_RETRY_WAIT)
             continue
         except OSError:
