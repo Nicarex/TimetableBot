@@ -3,6 +3,7 @@ yagmail==0.15.293
 imap-tools==1.11.1
 pendulum==3.2.0
 chardet==5.2.0
+pandas==3.0.0
 vkbottle==4.6.2
 aiohttp==3.13.3
 aiogram==3.25.0
