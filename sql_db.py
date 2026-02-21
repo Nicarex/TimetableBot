@@ -8,6 +8,7 @@ from glob import iglob
 from pathlib import Path
 
 from vkbottle import API
+from vkbottle.http import AiohttpClient
 
 from calendar_timetable import create_calendar_file_with_timetable, download_calendar_file_to_github
 from constants import MESSAGE_PREFIX, MESSAGE_SPLIT_SENTINEL
@@ -139,7 +140,7 @@ def _get_notifiable_users_with_subs(cursor, platform_name: str) -> list:
 
 async def write_msg_vk_chat(message: str, chat_id: str):
     logger.log('SQL', f'Try to send message to vk chat <{str(chat_id)}>')
-    api = API(vk_token)
+    api = API(vk_token, http_client=AiohttpClient())
     try:
         chat_id = int(chat_id)
         if chat_id > 2000000000:
@@ -157,11 +158,13 @@ async def write_msg_vk_chat(message: str, chat_id: str):
     except Exception as e:
         logger.log('SQL', f'Error happened while sending message to vk chat <{str(chat_id)}>: {e}')
         return False
+    finally:
+        await api.http_client.close()
 
 
 async def write_msg_vk_user(message: str, user_id: str):
     logger.log('SQL', f'Try to send message to vk user <{str(user_id)}>')
-    api = API(vk_token)
+    api = API(vk_token, http_client=AiohttpClient())
     try:
         user_id = int(user_id)
         result = await api.messages.send(
@@ -175,6 +178,8 @@ async def write_msg_vk_user(message: str, user_id: str):
     except Exception as e:
         logger.log('SQL', f'Error happened while sending message to vk user <{str(user_id)}>: {e}')
         return False
+    finally:
+        await api.http_client.close()
 
 
 async def write_msg_telegram(message: str, tg_id):
