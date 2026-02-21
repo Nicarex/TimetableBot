@@ -479,10 +479,44 @@ def send_notifications_telegram(group_list_current_week: list, group_list_next_w
 
 # ─── Сравнение расписаний и рассылка ───
 
+def update_changed_calendars(difference: list):
+    """Обновляет iCal-файлы на GitHub для преподавателей и групп из списка изменений.
+    Вызывается отдельно от compute_timetable_differences() чтобы можно было
+    запустить параллельно с рассылкой уведомлений."""
+    list_with_teachers = []
+    list_with_groups = []
+    with _db_connection('calendars_list.db', row_factory=sqlite3.Row) as conn:
+        c = conn.cursor()
+        for row in difference:
+            row_name = get_row_value(row, 'Name')
+            row_group = get_row_value(row, 'Group')
+            if not str(row_name) in list_with_teachers:
+                list_with_teachers += [str(row_name)]
+                calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row_name),)).fetchone()
+                if calendar_row:
+                    if create_calendar_file_with_timetable(teacher=str(row_name)) is True:
+                        if download_calendar_file_to_github(filename=str(row_name)) is False:
+                            logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row_name)}"')
+                        else:
+                            logger.log('SQL', f'Calendar for teacher = "{str(row_name)}" has been successfully updated')
+            if not str(row_group) in list_with_groups:
+                list_with_groups += [str(row_group)]
+                calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row_group),)).fetchone()
+                if calendar_row:
+                    if create_calendar_file_with_timetable(group_id=str(row_group)) is True:
+                        if download_calendar_file_to_github(filename=str(row_group)) is False:
+                            logger.log('SQL', f'Cant import timetable to calendar for group = {str(row_group)}')
+                        else:
+                            logger.log('SQL', f'Calendar for group = "{str(row_group)}" has been successfully updated')
+
+
 def compute_timetable_differences():
     """Вычисляет разницу между последним и предыдущим расписанием.
-    Возвращает dict с ключами group_list_current_week, group_list_next_week,
-    teacher_list_current_week, teacher_list_next_week или None если разницы нет."""
+    Возвращает tuple (event_dict, difference) где:
+      event_dict — dict с ключами group_list_current_week, group_list_next_week,
+                   teacher_list_current_week, teacher_list_next_week
+      difference — сырой список изменённых строк для update_changed_calendars()
+    Если разницы нет — возвращает (None, [])."""
     logger.log('SQL', 'Search the differences in timetables...')
     try:
         last_db = get_latest_file(path='timetable-dbs/*.db')
@@ -490,7 +524,7 @@ def compute_timetable_differences():
         logger.log('SQL', 'Previous timetable db is <' + previous_db + '>')
     except IndexError:
         logger.log('SQL', 'No previous sql-file. Skip file comparison for differences in timetables')
-        return None
+        return None, []
     # Подключение к базам данных расписания
     with _db_connection(last_db, row_factory=sqlite3.Row) as conn:
         c = conn.cursor()
@@ -520,33 +554,7 @@ def compute_timetable_differences():
             difference.append(curr_row)
     if not difference:
         logger.log('SQL', 'No differences in timetables')
-        return None
-    # Обновление календарей
-    list_with_teachers = []
-    list_with_groups = []
-    with _db_connection('calendars_list.db', row_factory=sqlite3.Row) as conn:
-        c = conn.cursor()
-        for row in difference:
-            row_name = get_row_value(row, 'Name')
-            row_group = get_row_value(row, 'Group')
-            if not str(row_name) in list_with_teachers:
-                list_with_teachers += [str(row_name)]
-                calendar_row = c.execute('SELECT * FROM calendars WHERE teacher = ?', (str(row_name),)).fetchone()
-                if calendar_row:
-                    if create_calendar_file_with_timetable(teacher=str(row_name)) is True:
-                        if download_calendar_file_to_github(filename=str(row_name)) is False:
-                            logger.log('SQL', f'Cant import timetable to calendar for teacher = "{str(row_name)}"')
-                        else:
-                            logger.log('SQL', f'Calendar for teacher = "{str(row_name)}" has been successfully updated')
-            if not str(row_group) in list_with_groups:
-                list_with_groups += [str(row_group)]
-                calendar_row = c.execute('SELECT * FROM calendars WHERE group_id = ?', (str(row_group),)).fetchone()
-                if calendar_row:
-                    if create_calendar_file_with_timetable(group_id=str(row_group)) is True:
-                        if download_calendar_file_to_github(filename=str(row_group)) is False:
-                            logger.log('SQL', f'Cant import timetable to calendar for group = {str(row_group)}')
-                        else:
-                            logger.log('SQL', f'Calendar for group = "{str(row_group)}" has been successfully updated')
+        return None, []
     # Формирование списков изменений
     dates_current_week = [date_request(day_of_week=day, for_db='YES') for day in range(7)]
     dates_next_week = [date_request(day_of_week=day, for_db='YES', next='YES') for day in range(7)]
@@ -577,14 +585,15 @@ def compute_timetable_differences():
         'group_list_next_week': group_list_next_week,
         'teacher_list_current_week': teacher_list_current_week,
         'teacher_list_next_week': teacher_list_next_week,
-    }
+    }, difference
 
 
 def getting_the_difference_in_sql_files_and_sending_them():
     """Обратно-совместимая обёртка: вычисляет разницу и рассылает уведомления."""
-    event = compute_timetable_differences()
+    event, difference = compute_timetable_differences()
     if event is None:
         return False
+    update_changed_calendars(difference)
     logger.log('SQL', 'Got the differences. Trying to send them to users')
     kw = event
     if send_notifications_email(**kw) is True:

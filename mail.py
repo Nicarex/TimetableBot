@@ -1,4 +1,5 @@
 import imaplib
+import threading
 from socket import gaierror
 from other import read_config, check_encoding_and_move_files, convert_to_sql, sendMail, strip_email_quotes, strip_html_quotes, NotificationError
 import os
@@ -8,13 +9,13 @@ from logger import logger
 from imap_tools import MailBox, A
 from glob import glob
 from pathlib import Path
-from sql_db import compute_timetable_differences, send_notifications_email, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
+from sql_db import compute_timetable_differences, update_changed_calendars, send_notifications_email, search_group_and_teacher_in_request, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, display_saved_settings, getting_timetable_for_user, getting_workload_excel_for_user, getting_workload_excel_all_months_for_user
 from calendar_timetable import show_calendar_url_to_user
 
 
 # Чтение почты и выполнение действий
 @logger.catch
-def processingMail(notification_queue=None):
+def processingMail(notification_queues=None):
     logger.log('MAIL', 'Email server started...')
     login_info = read_config(email='YES')
     while True:
@@ -46,17 +47,23 @@ def processingMail(notification_queue=None):
                     list_of_files = glob('timetable-files/*')
                     for file in list_of_files:
                         os.remove(file)
-                    event = compute_timetable_differences()
+                    event, difference = compute_timetable_differences()
                     if event is None:
                         logger.log('MAIL', 'Difference wasnt sent')
                     else:
-                        # Email-уведомления рассылает Mail-процесс напрямую
-                        send_notifications_email(**event)
-                        logger.log('MAIL', 'Successfully sent the differences by email')
-                        # Остальным ботам — через очередь
-                        if notification_queue is not None:
-                            notification_queue.put(event)
-                            logger.log('MAIL', 'Notification event put into queue for other bots')
+                        # Email и iCal-обновление запускаем параллельно в фоновых потоках
+                        email_thread = threading.Thread(
+                            target=send_notifications_email, kwargs=event, daemon=True)
+                        ical_thread = threading.Thread(
+                            target=update_changed_calendars, args=(difference,), daemon=True)
+                        email_thread.start()
+                        ical_thread.start()
+                        logger.log('MAIL', 'Email notifications and iCal update started in parallel')
+                        # Остальным ботам — каждый получает событие из своей очереди одновременно
+                        if notification_queues is not None:
+                            for platform, q in notification_queues.items():
+                                q.put(event)
+                            logger.log('MAIL', f'Notification event put into {len(notification_queues)} queues')
 
             # Получение непрочитанных сообщений с ярлыком Settings
             messages_set = mailbox.fetch(A(seen=False, gmail_label='Settings'))

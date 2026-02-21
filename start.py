@@ -37,14 +37,17 @@ if __name__ == '__main__':
         logger.critical(f'Failed to initialize: {e}')
         exit(1)
 
-    # Очередь для передачи событий изменения расписания от Mail к ботам
-    notification_queue = Queue()
+    # Отдельные очереди для каждой платформы: mail кладёт событие в каждую,
+    # бот-процесс забирает только из своей → все три получают событие одновременно
+    vk_queue = Queue()
+    telegram_queue = Queue()
+    discord_queue = Queue()
 
     services = [
-        (processingMail, 'Mail service', {'notification_queue': notification_queue}),
-        (start_vk_server, 'VK service', {'notification_queue': notification_queue}),
-        (start_telegram_server, 'Telegram service', {'notification_queue': notification_queue}),
-        (start_discord_server, 'Discord service', {}),
+        (processingMail, 'Mail service', {'notification_queues': {'vk': vk_queue, 'telegram': telegram_queue, 'discord': discord_queue}}),
+        (start_vk_server, 'VK service', {'notification_queue': vk_queue}),
+        (start_telegram_server, 'Telegram service', {'notification_queue': telegram_queue}),
+        (start_discord_server, 'Discord service', {'notification_queue': discord_queue}),
     ]
     processes = []
     for target, name, kwargs in services:

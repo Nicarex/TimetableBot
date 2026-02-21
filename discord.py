@@ -1,14 +1,15 @@
 import asyncio
 import functools
+import threading
 import nextcord
 from nextcord import Interaction, SlashOption
 from nextcord.ext import commands
 from other import read_config, connection_to_sql
-from sql_db import getting_timetable_for_user, getting_workload_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers
+from sql_db import getting_timetable_for_user, getting_workload_for_user, search_group_and_teacher_in_request, display_saved_settings, enable_and_disable_notifications, enable_and_disable_lesson_time, delete_all_saved_groups_and_teachers, _get_notifiable_users_with_subs, _collect_notification_messages_normalized
 from logger import logger
 import sqlite3
 from calendar_timetable import show_calendar_url_to_user
-from constants import URL_INSTRUCTIONS, AUTHOR_INFO, DISCORD_ADMIN_USERNAME
+from constants import URL_INSTRUCTIONS, AUTHOR_INFO, DISCORD_ADMIN_USERNAME, MESSAGE_PREFIX, MESSAGE_SPLIT_SENTINEL
 from messaging import split_response
 
 
@@ -195,9 +196,67 @@ async def broadcast(ctx, *, msg):
             logger.log('DISCORD', f'Sent broadcast message to channel <{user["platform_id"]}>')
 
 
+_bot_ready_event = threading.Event()
+
+
+@bot.event
+async def on_ready():
+    _bot_ready_event.set()
+    logger.log('DISCORD', f'Discord bot connected as {bot.user}')
+
+
+async def _send_notifications_discord_async(group_list_current_week: list, group_list_next_week: list,
+                                             teacher_list_current_week: list, teacher_list_next_week: list):
+    """Рассылает Discord-уведомления через уже запущенный бот."""
+    conn = connection_to_sql('user_settings.db')
+    conn.row_factory = sqlite3.Row
+    c = conn.cursor()
+    users = _get_notifiable_users_with_subs(c, 'discord')
+    c.close()
+    conn.close()
+    for user in users:
+        messages = _collect_notification_messages_normalized(
+            user, user['teachers'], user['groups'],
+            group_list_current_week, group_list_next_week,
+            teacher_list_current_week, teacher_list_next_week)
+        channel_id = user['platform_id']
+        for msg_text, tt in messages:
+            try:
+                channel = bot.get_channel(int(channel_id))
+                if channel:
+                    await channel.send(MESSAGE_PREFIX + msg_text)
+                    for part in tt.split(MESSAGE_SPLIT_SENTINEL):
+                        if part:
+                            await channel.send(part)
+                else:
+                    logger.log('DISCORD', f'Channel {channel_id} not found, skipping notification')
+            except Exception as e:
+                logger.log('DISCORD', f'Error sending notification to channel {channel_id}: {e}')
+
+
+def _notification_listener(notification_queue):
+    """Фоновый поток: ждёт готовности бота, затем слушает очередь и рассылает Discord-уведомления."""
+    _bot_ready_event.wait()
+    logger.log('DISCORD', 'Notification listener ready (bot is connected)')
+    while True:
+        try:
+            event = notification_queue.get()
+            logger.log('DISCORD', 'Received notification event from queue')
+            future = asyncio.run_coroutine_threadsafe(
+                _send_notifications_discord_async(**event), bot.loop)
+            future.result()
+            logger.log('DISCORD', 'Successfully sent Discord notifications from queue event')
+        except Exception as e:
+            logger.error(f'Error in Discord notification listener: {e}')
+
+
 # Запуск сервера
 @logger.catch
-def start_discord_server():
+def start_discord_server(notification_queue=None):
+    if notification_queue is not None:
+        t = threading.Thread(target=_notification_listener, args=(notification_queue,), daemon=True)
+        t.start()
+        logger.log('DISCORD', 'Notification listener thread started')
     try:
         logger.log('DISCORD', 'Discord server started...')
         bot.run(read_config(discord='YES'))
