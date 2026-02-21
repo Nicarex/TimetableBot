@@ -608,6 +608,7 @@ class TestNotificationIntegration:
         mock_conn.return_value = conn
         mock_api = MagicMock()
         mock_api.messages.send = AsyncMock(return_value=1)
+        mock_api.http_client.close = AsyncMock()
         MockAPI.return_value = mock_api
 
         result = send_notifications_vk_user(
@@ -637,6 +638,7 @@ class TestNotificationIntegration:
         mock_conn.return_value = conn
         mock_api = MagicMock()
         mock_api.messages.send = AsyncMock(return_value=1)
+        mock_api.http_client.close = AsyncMock()
         MockAPI.return_value = mock_api
 
         send_notifications_vk_chat(
@@ -668,6 +670,7 @@ class TestNotificationIntegration:
         ]
         mock_api = MagicMock()
         mock_api.messages.send = AsyncMock(return_value=1)
+        mock_api.http_client.close = AsyncMock()
         MockAPI.return_value = mock_api
 
         asyncio.run(send_notifications_vk_both_async(

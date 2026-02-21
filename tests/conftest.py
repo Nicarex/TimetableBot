@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Мокаем тяжёлые внешние зависимости, которых может не быть в тестовом окружении
 _MOCK_MODULES = [
-    'loguru', 'vkbottle', 'vkbottle.bot', 'aiogram', 'aiogram.exceptions',
+    'loguru', 'vkbottle', 'vkbottle.bot', 'vkbottle.http', 'aiogram', 'aiogram.exceptions',
     'aiogram.types', 'aiogram.filters', 'nextcord', 'nextcord.ext',
     'nextcord.ext.commands', 'yagmail', 'chardet', 'pendulum',
     'pandas', 'github', 'icalendar', 'xlsxwriter',
@@ -46,6 +46,11 @@ _loguru.logger = _MockLogger()
 
 # vkbottle.API нужен в sql_db.py
 sys.modules['vkbottle'].API = lambda *a, **k: None
+
+# vkbottle.http.AiohttpClient нужен в sql_db.py
+class _MockAiohttpClient:
+    async def close(self): pass
+sys.modules['vkbottle.http'].AiohttpClient = _MockAiohttpClient
 
 # chardet.detect нужен в other.py
 sys.modules['chardet'].detect = lambda *a, **k: {'encoding': 'utf-8', 'confidence': 1.0}
