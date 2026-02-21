@@ -17,3 +17,5 @@ psevdocode
 *.xls
 *.txt
 *.db
+CLAUDE.md
+.claude/

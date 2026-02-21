@@ -437,6 +437,18 @@ def send_notifications_vk_user(group_list_current_week: list, group_list_next_we
         group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week))
 
 
+async def send_notifications_vk_both_async(group_list_current_week: list, group_list_next_week: list,
+                                            teacher_list_current_week: list, teacher_list_next_week: list):
+    """Async-рассылка VK-уведомлений (чаты + пользователи) в одном event loop.
+    Используется notification listener'ом vk.py через постоянный event loop потока."""
+    await _send_notifications_vk_async(
+        'vk_chat', write_msg_vk_chat, 'VK чату',
+        group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week)
+    await _send_notifications_vk_async(
+        'vk_user', write_msg_vk_user, 'VK пользователю',
+        group_list_current_week, group_list_next_week, teacher_list_current_week, teacher_list_next_week)
+
+
 async def _send_notifications_telegram_async(group_list_current_week, group_list_next_week,
                                               teacher_list_current_week, teacher_list_next_week):
     """Асинхронная рассылка уведомлений в Telegram."""
@@ -451,7 +463,9 @@ async def _send_notifications_telegram_async(group_list_current_week, group_list
         tg_id = user['platform_id']
         for msg_text, tt in messages:
             await write_msg_telegram(message=msg_text, tg_id=tg_id)
-            await write_msg_telegram(message=tt, tg_id=tg_id)
+            for part in tt.split(MESSAGE_SPLIT_SENTINEL):
+                if part:
+                    await write_msg_telegram(message=part, tg_id=tg_id)
     return True
 
 
