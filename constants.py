@@ -1,4 +1,8 @@
 # Все константы и конфигурация проекта TimetableBot
+from datetime import datetime
+
+import pendulum
+from icalendar import TimezoneStandard, Timezone
 
 # Часовой пояс
 TIMEZONE = 'Europe/Moscow'
@@ -90,3 +94,24 @@ SQL_TIMEOUT = 20
 VK_SEND_DELAY = 0.25
 MAIL_RETRY_WAIT = 120
 CALENDAR_REFRESH_INTERVAL = 'PT6H'
+
+
+# Компонент таймзоны для .ics файла
+def build_tz_component() -> Timezone:
+    now = pendulum.now(tz=TIMEZONE)
+    tz_name = now.tzname()
+    tz_utc_offset = now.utcoffset()
+
+    tz = Timezone()
+    tz.add('tzid', TIMEZONE)
+    standard = TimezoneStandard()
+    standard.add('tzoffsetfrom', tz_utc_offset)
+    standard.add('tzoffsetto', tz_utc_offset)
+    standard.add('tzname', tz_name)
+    standard.add('dtstart', datetime(1970, 1, 1, 0, 0, 0))
+    tz.add_component(standard)
+
+    return tz
+
+
+TZ_CALENDAR_COMPONENT = build_tz_component()
