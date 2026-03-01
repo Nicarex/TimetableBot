@@ -1,18 +1,20 @@
-from logger import logger
-from other import connection_to_sql, get_latest_file, read_config
-from sqlite3 import Row
-from github import Github
-from urllib import request
 import time
-from icalendar import Calendar, Event
+from sqlite3 import Row
+from urllib import request
+
 import pendulum
+from github import Github
+from icalendar import Calendar, Event
+
 from constants import (
     TIMEZONE, GLOB_TIMETABLE_DB, GITHUB_REPO_NAME,
-    GITHUB_CALENDARS_BASE_URL, LESSON_TIMES, CALENDAR_REFRESH_INTERVAL,
+    GITHUB_CALENDARS_BASE_URL, LESSON_TIMES, CALENDAR_REFRESH_INTERVAL, TZ_CALENDAR_COMPONENT,
 )
+from logger import logger
+from other import connection_to_sql, get_latest_file, read_config
 from platform_context import resolve_platform
 
-
+TIME_FORMAT = 'YYYYMMDDTHHmmss'
 github_token = read_config(github='YES')
 
 
@@ -29,6 +31,7 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
         cal.add('x-wr-caldesc', f'Расписание занятий для преподавателя {teacher}')
         cal.add('refresh-interval;value=duration', CALENDAR_REFRESH_INTERVAL)
         cal.add('x-published-ttl', CALENDAR_REFRESH_INTERVAL)
+        cal.add_component(TZ_CALENDAR_COMPONENT)
         # Получение расписания занятий из бд расписания
         db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
         if db_timetable is None:
@@ -58,23 +61,21 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
                 logger.error(f'Incorrect lesson value = <{str(elem["Les"])}>')
                 return False
             start_t, end_t = LESSON_TIMES[les_num]
-            now = pendulum.now(tz=TIMEZONE).format('YYYYMMDDTHHmmss')
-            start_time = pendulum.from_format(string=f"{str(elem['Date'])} {start_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
-            end_time = pendulum.from_format(string=f"{str(elem['Date'])} {end_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
+            now = pendulum.now(tz=TIMEZONE)
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} {start_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE)
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} {end_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE)
             # Добавление дат в событие
-            event['dtstart'] = start_time
-            event['dtend'] = end_time
-            event['dtstamp'] = now
-            event['created'] = now
-            event['last-modified'] = now
+            event.add('dtstart', start_time)
+            event.add('dtend', end_time)
+            event.add('dtstamp', now)
+            event.add('created', now)
+            event.add('last-modified', now)
             # Уникальный идентификатор события
-            uid = f'{start_time}@{now}@{teacher}'
+            uid = f"{start_time.format(TIME_FORMAT)}@{now.format(TIME_FORMAT)}@{teacher}"
             event.add('uid', str(uid))
             # Уровень занятости
-            event['transp'] = 'OPAQUE'
-            # Формирование строки с расписанием
-            timetable_string = ''
-            # Строка в зависимости от темы
+            event.add('transp', 'OPAQUE')
+            # Формирование строки с расписанием в зависимости от темы
             if elem['Themas'] is not None:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])} {str(elem["Group"])} гр.'
             else:
@@ -113,6 +114,7 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
         cal.add('x-wr-caldesc', f'Расписание занятий для группы {group_id}')
         cal.add('refresh-interval;value=duration', CALENDAR_REFRESH_INTERVAL)
         cal.add('x-published-ttl', CALENDAR_REFRESH_INTERVAL)
+        cal.add_component(TZ_CALENDAR_COMPONENT)
         # Получение расписания занятий из бд расписания
         db_timetable = get_latest_file(GLOB_TIMETABLE_DB)
         if db_timetable is None:
@@ -140,23 +142,21 @@ def create_calendar_file_with_timetable(teacher: str = None, group_id: str = Non
                 logger.error(f'Incorrect lesson value = <{str(elem["Les"])}>')
                 return False
             start_t, end_t = LESSON_TIMES[les_num]
-            now = pendulum.now(tz=TIMEZONE).format('YYYYMMDDTHHmmss')
-            start_time = pendulum.from_format(string=f"{str(elem['Date'])} {start_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
-            end_time = pendulum.from_format(string=f"{str(elem['Date'])} {end_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE).format('YYYYMMDDTHHmmss')
+            now = pendulum.now(tz=TIMEZONE)
+            start_time = pendulum.from_format(string=f"{str(elem['Date'])} {start_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE)
+            end_time = pendulum.from_format(string=f"{str(elem['Date'])} {end_t}", fmt='D-MM-YYYY HH:mm', tz=TIMEZONE)
             # Добавление дат в событие
-            event['dtstart'] = start_time
-            event['dtend'] = end_time
-            event['dtstamp'] = now
-            event['created'] = now
-            event['last-modified'] = now
+            event.add('dtstart', start_time)
+            event.add('dtend', end_time)
+            event.add('dtstamp', now)
+            event.add('created', now)
+            event.add('last-modified', now)
             # Уникальный идентификатор события
-            uid = f'{start_time}@{now}@{group_id}'
+            uid = f"{start_time.format(TIME_FORMAT)}@{now.format(TIME_FORMAT)}@{group_id}"
             event.add('uid', str(uid))
             # Уровень занятости
-            event['transp'] = 'OPAQUE'
-            # Формирование строки с расписанием
-            timetable_string = ''
-            # Строка в зависимости от темы
+            event.add('transp', 'OPAQUE')
+            # Формирование строки с расписанием в зависимости от темы
             if elem['Themas'] is not None:
                 timetable_string = f'({str(elem["Subj_type"])}) {str(elem["Themas"])} {str(elem["Subject"])}{str(elem["Aud"])}'
             else:
