@@ -12,7 +12,7 @@ jobs:
 
     steps:
       - name: Checkout
-        run: git clone --depth 1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
+        uses: actions/checkout@v4
 
       - name: Set up Python
         run: |
