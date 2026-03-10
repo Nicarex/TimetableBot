@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 import types
 
 # Добавляем корень проекта в sys.path для импорта модулей
@@ -179,6 +179,14 @@ class _MockDateTime:
             return self.dt == other.dt
         return False
 
+    @staticmethod
+    def tzname():
+        return "MSK"
+
+    @staticmethod
+    def utcoffset():
+        return timedelta(hours=3)
+
 _pendulum = sys.modules['pendulum']
 _pendulum.now = lambda *a, **kw: _MockDateTime()
 _pendulum.set_locale = lambda *a, **kw: None
@@ -198,4 +206,6 @@ _github.Github = lambda *a, **k: None
 # icalendar
 _ical = sys.modules['icalendar']
 _ical.Calendar = type('Calendar', (), {'add': lambda s, *a, **k: None, 'add_component': lambda s, *a: None, 'to_ical': lambda s: b''})
-_ical.Event = type('Event', (), {'add': lambda s, *a, **k: None, '__setitem__': lambda s, k, v: None})
+_ical.Event = type('Event', (), {'add': lambda s, *a, **k: None})
+_ical.Timezone = type('Timezone', (), {'add': lambda s, *a, **k: None, 'add_component': lambda s, *a: None})
+_ical.TimezoneStandard = type('TimezoneStandard', (), {'add': lambda s, *a, **k: None})
