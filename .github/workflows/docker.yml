@@ -14,7 +14,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        run: git clone --depth 1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
 
       - name: Set up Python
         run: |
@@ -40,7 +40,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        run: git clone --depth 1 https://github.com/${{ github.repository }}.git -b ${{ github.ref_name }} .
 
       - name: Log in to GitHub Container Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
